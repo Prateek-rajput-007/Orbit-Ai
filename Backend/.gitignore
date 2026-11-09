@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment files
+.env
+.env.*
+!.env.example
+!*.env.example
+
+# Firebase & GCP service accounts (CRITICAL)
+firebase.json
+**/firebase.json
+serviceAccountKey*.json
+*.pem
+*.key
+
+# Logs
+logs/
+*.log
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

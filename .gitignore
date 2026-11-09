@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Production builds
+dist/
+dist-ssr/
+build/
+*.local
+
+# Environment files & Secrets (CRITICAL)
+.env
+.env.*
+!.env.example
+!*.env.example
+*.pem
+*.key
+firebase.json
+**/firebase.json
+serviceAccountKey*.json
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor & OS files
+.DS_Store
+Thumbs.db
+.chrome-temp/
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
