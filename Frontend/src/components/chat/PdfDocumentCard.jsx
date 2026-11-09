@@ -1,4 +1,5 @@
 import { useState } from "react"
+import downloadFile from "../../lib/download.js"
 import {
   FileText,
   Layers,
@@ -29,18 +30,10 @@ export default function PdfDocumentCard({
 
   const handleDownload = () => {
     if (!hasDownloadSource) return
-    try {
-      const link = document.createElement("a")
-      link.href = pdfDocument.dataUrl
-      link.download = fileName.toLowerCase().endsWith(".pdf") ? fileName : `${fileName}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      setDownloadSuccess(true)
-      setTimeout(() => setDownloadSuccess(false), 2500)
-    } catch (err) {
-      console.error("Unable to trigger PDF download:", err)
-    }
+    const targetName = fileName.toLowerCase().endsWith(".pdf") ? fileName : `${fileName}.pdf`
+    downloadFile(pdfDocument.dataUrl, targetName)
+    setDownloadSuccess(true)
+    setTimeout(() => setDownloadSuccess(false), 2500)
   }
 
   return (

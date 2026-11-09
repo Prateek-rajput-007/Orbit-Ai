@@ -21,7 +21,7 @@ import {
 } from "lucide-react"
 import { downloadCodeArtifactZip } from "../../lib/zipExporter.js"
 import { bundleCodePreviewClient } from "../../lib/codePreviewBundler.js"
-import { deployArtifactRequest } from "../../features/conversations/conversationActions.js"
+import useArtifactDeployment from "./useArtifactDeployment.jsx"
 
 export default function CodeArtifactPanel({ artifact, conversationId, onClose }) {
   const [activeTab, setActiveTab] = useState("preview") // "preview" | "code"
@@ -29,11 +29,19 @@ export default function CodeArtifactPanel({ artifact, conversationId, onClose })
   const [activeFileIndex, setActiveFileIndex] = useState(0)
   const [copiedFile, setCopiedFile] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
-  const [isDeploying, setIsDeploying] = useState(false)
-  const [showDeployConfirm, setShowDeployConfirm] = useState(false)
-  const [deploymentState, setDeploymentState] = useState(artifact?.deployment || null)
-  const [deployNotice, setDeployNotice] = useState("")
   const [reloadKey, setReloadKey] = useState(0)
+
+  const {
+    isDeploying,
+    showDeployConfirm,
+    setShowDeployConfirm,
+    deploymentState,
+    deployNotice,
+    setDeployNotice,
+    triggerDeploy,
+    isDeployed,
+    isFailed,
+  } = useArtifactDeployment(artifact, conversationId, artifact?.messageId)
 
   const files = Array.isArray(artifact?.files) ? artifact.files : []
   const activeFile = files[activeFileIndex] || files[0]
@@ -46,18 +54,17 @@ export default function CodeArtifactPanel({ artifact, conversationId, onClose })
       files.some((f) => f.path.endsWith(".html") || f.path.endsWith(".js") || f.path.endsWith(".css"))
   )
   const totalKb = ((artifact?.totalSize || 0) / 1024).toFixed(1)
-  const isDeployed = Boolean(
-    (deploymentState?.status === "published" || deploymentState?.status === "deployed") &&
-      deploymentState?.url
-  )
-  const isFailed = Boolean(deploymentState?.status === "failed")
 
   const effectiveHtml = useMemo(() => {
     if (!artifact) return ""
-    if (artifact.bundledHtml && artifact.bundledHtml.includes("orbit-sandbox-shims")) {
+    // When files array is present, client-side bundler ensures JSX/Babel and CDN dependencies are always resolved
+    if (Array.isArray(artifact.files) && artifact.files.length > 0) {
+      return bundleCodePreviewClient(artifact.files, artifact.entryFile || "index.html")
+    }
+    if (artifact.bundledHtml) {
       return artifact.bundledHtml
     }
-    return bundleCodePreviewClient(artifact.files || [], artifact.entryFile || "index.html")
+    return ""
   }, [artifact])
 
   if (!artifact) return null
@@ -98,44 +105,7 @@ export default function CodeArtifactPanel({ artifact, conversationId, onClose })
     }
   }
 
-  const handleTriggerDeploy = async () => {
-    setShowDeployConfirm(false)
-    setIsDeploying(true)
-    setDeployNotice("")
-
-    try {
-      const result = await deployArtifactRequest({
-        conversationId,
-        messageId: artifact.messageId,
-        artifact,
-        provider: "netlify",
-      })
-
-      if (result.success && result.deploymentUrl) {
-        setDeploymentState({
-          status: "published",
-          url: result.deploymentUrl,
-          provider: result.provider || "Netlify",
-          deployId: result.deployId,
-          verified: result.verified,
-          deployedAt: result.deployedAt,
-        })
-      } else if (result.status === "unconfigured") {
-        setDeploymentState((prev) => ({ ...prev, status: "failed" }))
-        setDeployNotice(result.error || "NETLIFY_AUTH_TOKEN is not configured in backend environment.")
-      } else {
-        setDeploymentState((prev) => ({ ...prev, status: "failed" }))
-        setDeployNotice(result.error || "Deployment failed. Check server logs.")
-      }
-    } catch (err) {
-      const msg =
-        err.response?.data?.message || err.response?.data?.error || err.message || "Deployment failed."
-      setDeploymentState((prev) => ({ ...prev, status: "failed" }))
-      setDeployNotice(msg)
-    } finally {
-      setIsDeploying(false)
-    }
-  }
+  const handleTriggerDeploy = () => triggerDeploy("netlify")
 
   const getViewportWidth = () => {
     switch (viewport) {

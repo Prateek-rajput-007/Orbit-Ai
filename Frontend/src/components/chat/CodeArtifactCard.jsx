@@ -16,7 +16,7 @@ import {
   Loader2,
 } from "lucide-react"
 import { downloadCodeArtifactZip } from "../../lib/zipExporter.js"
-import { deployArtifactRequest } from "../../features/conversations/conversationActions.js"
+import useArtifactDeployment from "./useArtifactDeployment.jsx"
 
 export default function CodeArtifactCard({
   codeArtifact,
@@ -28,10 +28,18 @@ export default function CodeArtifactCard({
   const [activeFileIndex, setActiveFileIndex] = useState(0)
   const [copiedFile, setCopiedFile] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
-  const [isDeploying, setIsDeploying] = useState(false)
-  const [showDeployConfirm, setShowDeployConfirm] = useState(false)
-  const [deploymentState, setDeploymentState] = useState(codeArtifact?.deployment || null)
-  const [deployNotice, setDeployNotice] = useState("")
+
+  const {
+    isDeploying,
+    showDeployConfirm,
+    setShowDeployConfirm,
+    deploymentState,
+    deployNotice,
+    setDeployNotice,
+    triggerDeploy,
+    isDeployed,
+    isFailed,
+  } = useArtifactDeployment(codeArtifact, conversationId, messageId)
 
   if (!codeArtifact || !Array.isArray(codeArtifact.files) || codeArtifact.files.length === 0) {
     return null
@@ -47,11 +55,6 @@ export default function CodeArtifactCard({
       files.some((f) => f.path.endsWith(".html") || f.path.endsWith(".js") || f.path.endsWith(".css"))
   )
   const totalKb = ((codeArtifact.totalSize || 0) / 1024).toFixed(1)
-  const isDeployed = Boolean(
-    (deploymentState?.status === "published" || deploymentState?.status === "deployed") &&
-      deploymentState?.url
-  )
-  const isFailed = Boolean(deploymentState?.status === "failed")
 
   const handleCopyCode = async () => {
     if (!activeFile?.content) return
@@ -73,44 +76,7 @@ export default function CodeArtifactCard({
     }
   }
 
-  const handleTriggerDeploy = async () => {
-    setShowDeployConfirm(false)
-    setIsDeploying(true)
-    setDeployNotice("")
-
-    try {
-      const result = await deployArtifactRequest({
-        conversationId,
-        messageId,
-        artifact: codeArtifact,
-        provider: "netlify",
-      })
-
-      if (result.success && result.deploymentUrl) {
-        setDeploymentState({
-          status: "published",
-          url: result.deploymentUrl,
-          provider: result.provider || "Netlify",
-          deployId: result.deployId,
-          verified: result.verified,
-          deployedAt: result.deployedAt,
-        })
-      } else if (result.status === "unconfigured") {
-        setDeploymentState((prev) => ({ ...prev, status: "failed" }))
-        setDeployNotice(result.error || "NETLIFY_AUTH_TOKEN is not configured in backend environment.")
-      } else {
-        setDeploymentState((prev) => ({ ...prev, status: "failed" }))
-        setDeployNotice(result.error || "Deployment failed. Check server logs.")
-      }
-    } catch (err) {
-      const msg =
-        err.response?.data?.message || err.response?.data?.error || err.message || "Deployment failed."
-      setDeploymentState((prev) => ({ ...prev, status: "failed" }))
-      setDeployNotice(msg)
-    } finally {
-      setIsDeploying(false)
-    }
-  }
+  const handleTriggerDeploy = () => triggerDeploy("netlify")
 
   return (
     <div className="my-4 overflow-hidden rounded-xl border border-white/10 bg-surface shadow-lg transition hover:border-white/20">

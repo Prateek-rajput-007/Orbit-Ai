@@ -12,6 +12,20 @@ export function transformScriptForSandboxClient(code = "") {
 }
 
 /**
+ * Checks if code content or file path involves React JSX or React DOM components.
+ */
+export function isJsxOrReactContent(content = "", path = "") {
+  if (typeof path === "string" && (path.toLowerCase().endsWith(".jsx") || path.toLowerCase().endsWith(".tsx"))) {
+    return true
+  }
+  if (!content || typeof content !== "string") return false
+  return (
+    /<[A-Za-z][A-Za-z0-9_.-]*[\s\S]*\/?>/.test(content) ||
+    /className\s*=|onClick\s*=|ReactDOM\.createRoot|ReactDOM\.render|React\.useState|React\.useEffect/.test(content)
+  )
+}
+
+/**
  * Inlines CSS and JS into an HTML entry file client-side.
  * Used as a fallback when opening restored artifacts from conversation history.
  *
@@ -21,32 +35,32 @@ export function transformScriptForSandboxClient(code = "") {
  */
 export function bundleCodePreviewClient(files = [], entryPath = "index.html") {
   if (!Array.isArray(files) || files.length === 0) {
-    return "<!DOCTYPE html><html><body class='bg-slate-900 text-white p-4'>No files to preview.</body></html>";
+    return "<!DOCTYPE html><html><body class='bg-slate-900 text-white p-4'>No files to preview.</body></html>"
   }
 
-  const fileMap = new Map();
+  const fileMap = new Map()
   for (const file of files) {
     if (file?.path && typeof file?.content === "string") {
-      fileMap.set(file.path.toLowerCase(), file.content);
+      fileMap.set(file.path.toLowerCase(), file.content)
     }
   }
 
-  let htmlContent = fileMap.get((entryPath || "index.html").toLowerCase()) || "";
+  let htmlContent = fileMap.get((entryPath || "index.html").toLowerCase()) || ""
 
   // If no HTML file is present, look for any .html file
   if (!htmlContent) {
     for (const [path, content] of fileMap.entries()) {
       if (path.endsWith(".html")) {
-        htmlContent = content;
-        break;
+        htmlContent = content
+        break
       }
     }
   }
 
   // If still no HTML, construct a host document
   if (!htmlContent) {
-    const jsFiles = files.filter((f) => f.path.endsWith(".js") || f.path.endsWith(".jsx"));
-    const cssFiles = files.filter((f) => f.path.endsWith(".css"));
+    const jsFiles = files.filter((f) => f.path.endsWith(".js") || f.path.endsWith(".jsx"))
+    const cssFiles = files.filter((f) => f.path.endsWith(".css"))
 
     htmlContent = `<!DOCTYPE html>
 <html lang="en">
@@ -61,44 +75,65 @@ export function bundleCodePreviewClient(files = [], entryPath = "index.html") {
     <div id="app"></div>
   </div>
 </body>
-</html>`;
+</html>`
 
     for (const css of cssFiles) {
-      htmlContent = htmlContent.replace("</head>", `<style>\n${css.content}\n</style>\n</head>`);
+      htmlContent = htmlContent.replace("</head>", `<style>\n${css.content}\n</style>\n</head>`)
     }
     for (const js of jsFiles) {
-      const transformedJs = transformScriptForSandboxClient(js.content);
-      htmlContent = htmlContent.replace("</body>", `<script>\n${transformedJs}\n</script>\n</body>`);
+      const transformedJs = transformScriptForSandboxClient(js.content)
+      const isReact = isJsxOrReactContent(js.content, js.path)
+      const tag = isReact ? '<script type="text/babel">' : '<script>'
+      htmlContent = htmlContent.replace("</body>", `${tag}\n${transformedJs}\n</script>\n</body>`)
     }
   } else {
     // Inline external CSS / JS
     for (const file of files) {
-      const fileName = file.path.split("/").pop();
-      const escapedFileName = fileName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const fileName = file.path.split("/").pop()
+      const escapedFileName = fileName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 
       if (file.path.endsWith(".css")) {
-        const linkRegex = new RegExp(`<link[^>]*href=["'][^"']*${escapedFileName}["'][^>]*\\/?>`, "gi");
+        const linkRegex = new RegExp(`<link[^>]*href=["'][^"']*${escapedFileName}["'][^>]*\\/?>`, "gi")
         if (linkRegex.test(htmlContent)) {
-          htmlContent = htmlContent.replace(linkRegex, `<style>\n/* Inlined: ${file.path} */\n${file.content}\n</style>`);
+          htmlContent = htmlContent.replace(linkRegex, `<style>\n/* Inlined: ${file.path} */\n${file.content}\n</style>`)
         } else if (!htmlContent.includes(file.content.slice(0, 30))) {
           if (htmlContent.includes("</head>")) {
-            htmlContent = htmlContent.replace("</head>", `<style>\n/* Inlined: ${file.path} */\n${file.content}\n</style>\n</head>`);
+            htmlContent = htmlContent.replace("</head>", `<style>\n/* Inlined: ${file.path} */\n${file.content}\n</style>\n</head>`)
           } else {
-            htmlContent = `<style>\n/* Inlined: ${file.path} */\n${file.content}\n</style>\n` + htmlContent;
+            htmlContent = `<style>\n/* Inlined: ${file.path} */\n${file.content}\n</style>\n` + htmlContent
           }
         }
       }
 
-      if (file.path.endsWith(".js") && !file.path.endsWith(".test.js")) {
-        const transformedJs = transformScriptForSandboxClient(file.content);
-        const scriptRegex = new RegExp(`<script[^>]*src=["'][^"']*${escapedFileName}["'][^>]*>(?:\\s*<\\/script>)?`, "gi");
+      if ((file.path.endsWith(".js") || file.path.endsWith(".jsx")) && !file.path.endsWith(".test.js")) {
+        const transformedJs = transformScriptForSandboxClient(file.content)
+        const scriptRegex = new RegExp(`<script([^>]*)src=["'][^"']*${escapedFileName}["']([^>]*)>(?:\\s*<\\/script>)?`, "gi")
+        const isReactOrJsx =
+          isJsxOrReactContent(file.content, file.path) ||
+          htmlContent.includes("text/babel") ||
+          htmlContent.includes("@babel/standalone") ||
+          htmlContent.includes("babel.min.js")
+
         if (scriptRegex.test(htmlContent)) {
-          htmlContent = htmlContent.replace(scriptRegex, `<script>\n/* Inlined: ${file.path} */\n${transformedJs}\n</script>`);
+          htmlContent = htmlContent.replace(scriptRegex, (match, before, after) => {
+            const attrs = `${before || ""} ${after || ""}`
+            let scriptType = ""
+            if (/type=["']text\/babel["']/i.test(attrs) || isReactOrJsx) {
+              scriptType = ' type="text/babel"'
+            } else if (/type=["']module["']/i.test(attrs)) {
+              scriptType = ' type="module"'
+            } else {
+              const typeMatch = attrs.match(/type=["']([^"']+)["']/i)
+              if (typeMatch) scriptType = ` type="${typeMatch[1]}"`
+            }
+            return `<script${scriptType}>\n/* Inlined: ${file.path} */\n${transformedJs}\n</script>`
+          })
         } else if (!htmlContent.includes(file.content.slice(0, 30))) {
+          const tag = isReactOrJsx ? '<script type="text/babel">' : '<script>'
           if (htmlContent.includes("</body>")) {
-            htmlContent = htmlContent.replace("</body>", `<script>\n/* Inlined: ${file.path} */\n${transformedJs}\n</script>\n</body>`);
+            htmlContent = htmlContent.replace("</body>", `${tag}\n/* Inlined: ${file.path} */\n${transformedJs}\n</script>\n</body>`)
           } else {
-            htmlContent += `\n<script>\n/* Inlined: ${file.path} */\n${transformedJs}\n</script>`;
+            htmlContent += `\n${tag}\n/* Inlined: ${file.path} */\n${transformedJs}\n</script>`
           }
         }
       }
@@ -106,17 +141,46 @@ export function bundleCodePreviewClient(files = [], entryPath = "index.html") {
 
     if (!htmlContent.includes("cdn.tailwindcss.com") && !htmlContent.includes("bootstrap")) {
       if (htmlContent.includes("<head>")) {
-        htmlContent = htmlContent.replace("<head>", '<head>\n  <script src="https://cdn.tailwindcss.com"></script>');
+        htmlContent = htmlContent.replace("<head>", '<head>\n  <script src="https://cdn.tailwindcss.com"></script>')
       } else if (htmlContent.includes("<html>")) {
-        htmlContent = htmlContent.replace("<html>", '<html>\n<head>\n  <script src="https://cdn.tailwindcss.com"></script>\n</head>');
+        htmlContent = htmlContent.replace("<html>", '<html>\n<head>\n  <script src="https://cdn.tailwindcss.com"></script>\n</head>')
       }
     }
   }
 
-  // Inject CSP (Content Security Policy) to restrict outbound frame/object execution while permitting CDN styles, fonts, and images
-  const cspMeta = '<meta http-equiv="Content-Security-Policy" content="default-src \'self\' \'unsafe-inline\' \'unsafe-eval\' data: blob: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src * data: blob: https:; font-src * data: https:; style-src \'self\' \'unsafe-inline\' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://fonts.googleapis.com; connect-src \'self\' data: blob:; frame-src \'none\'; object-src \'none\'; base-uri \'none\';">';
+  // Auto-inject Babel CDN if JSX or Babel script tag is present and Babel is not loaded
+  const requiresBabel = htmlContent.includes('type="text/babel"') || isJsxOrReactContent(htmlContent)
+  if (requiresBabel && !htmlContent.includes("@babel/standalone") && !htmlContent.includes("babel.min.js")) {
+    const babelTag = '  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>'
+    if (htmlContent.includes("<head>")) {
+      htmlContent = htmlContent.replace("<head>", `<head>\n${babelTag}`)
+    } else if (htmlContent.includes("<html>")) {
+      htmlContent = htmlContent.replace("<html>", `<html>\n<head>\n${babelTag}\n</head>`)
+    } else {
+      htmlContent = `${babelTag}\n${htmlContent}`
+    }
+  }
 
-  // In-memory Storage & Cookie polyfill for strict sandboxed previews (prevents SecurityError when allow-same-origin is omitted)
+  // Auto-inject React & ReactDOM CDN if React/ReactDOM is referenced but not loaded
+  const referencesReact = htmlContent.includes("React.") || htmlContent.includes("ReactDOM.") || requiresBabel
+  const hasReactCdn =
+    htmlContent.includes("/react@") ||
+    htmlContent.includes("/react.") ||
+    htmlContent.includes("react.development") ||
+    htmlContent.includes("react.production")
+  if (referencesReact && !hasReactCdn) {
+    const reactTags =
+      '  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>\n  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>'
+    if (htmlContent.includes("<head>")) {
+      htmlContent = htmlContent.replace("<head>", `<head>\n${reactTags}`)
+    }
+  }
+
+  // Inject CSP permitting standard developer CDNs (Tailwind, Babel, React, Lucide, Unpkg, JsDelivr, Esm.sh, Fonts, Cdnjs)
+  const cspMeta =
+    '<meta http-equiv="Content-Security-Policy" content="default-src \'self\' \'unsafe-inline\' \'unsafe-eval\' data: blob: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com https://cdn.jsdelivr.net https://esm.sh; img-src * data: blob: https:; font-src * data: https:; style-src \'self\' \'unsafe-inline\' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://fonts.googleapis.com https://unpkg.com https://cdn.jsdelivr.net; script-src \'self\' \'unsafe-inline\' \'unsafe-eval\' data: blob: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://unpkg.com https://cdn.jsdelivr.net https://esm.sh; connect-src \'self\' data: blob:; frame-src \'none\'; object-src \'none\'; base-uri \'none\';">'
+
+  // In-memory Storage & Cookie polyfill for strict sandboxed previews
   const sandboxStorageShim = `
 <script id="orbit-sandbox-shims">
 (function() {
@@ -233,19 +297,11 @@ export function bundleCodePreviewClient(files = [], entryPath = "index.html") {
   });
 })();
 </script>
-`;
+`
 
-  if (htmlContent.includes("<head>")) {
-    htmlContent = htmlContent.replace("<head>", `<head>\n  ${cspMeta}\n${sandboxStorageShim}`);
-  } else if (htmlContent.includes("<html>")) {
-    htmlContent = htmlContent.replace("<html>", `<html><head>${cspMeta}\n${sandboxStorageShim}</head>`);
-  } else {
-    htmlContent = `<head>${cspMeta}\n${sandboxStorageShim}</head>\n${htmlContent}`;
-  }
-
-  // Inject error catcher
+  // Early Error Catcher injected into <head> so it captures initial parsing & execution errors
   const errorCatcherScript = `
-<script>
+<script id="orbit-runtime-error-catcher">
 window.addEventListener('error', function(event) {
   var banner = document.getElementById('orbit-runtime-error-banner');
   if (!banner) {
@@ -260,18 +316,30 @@ window.addEventListener('error', function(event) {
     closeBtn.onclick = function() { banner.remove(); };
     banner.appendChild(textSpan);
     banner.appendChild(closeBtn);
-    document.body.appendChild(banner);
+    if (document.body) {
+      document.body.appendChild(banner);
+    } else {
+      window.addEventListener('DOMContentLoaded', function() {
+        if (document.body && !document.getElementById('orbit-runtime-error-banner')) {
+          document.body.appendChild(banner);
+        }
+      });
+    }
   }
   var span = document.getElementById('orbit-runtime-error-text');
   if (span) span.textContent = 'Runtime error: ' + (event.message || 'Script error');
 });
 </script>
-`;
-  if (htmlContent.includes("</body>")) {
-    htmlContent = htmlContent.replace("</body>", `${errorCatcherScript}\n</body>`);
+`
+
+  const headInject = `${cspMeta}\n${sandboxStorageShim}\n${errorCatcherScript}`
+  if (htmlContent.includes("<head>")) {
+    htmlContent = htmlContent.replace("<head>", `<head>\n  ${headInject}`)
+  } else if (htmlContent.includes("<html>")) {
+    htmlContent = htmlContent.replace("<html>", `<html><head>${headInject}</head>`)
   } else {
-    htmlContent += errorCatcherScript;
+    htmlContent = `<head>${headInject}</head>\n${htmlContent}`
   }
 
-  return htmlContent;
+  return htmlContent
 }

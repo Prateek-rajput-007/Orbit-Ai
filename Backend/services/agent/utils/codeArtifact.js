@@ -102,6 +102,20 @@ export const transformScriptForSandbox = (code = "") => {
 };
 
 /**
+ * Checks if code content or file path involves React JSX or React DOM components.
+ */
+export const isJsxOrReactContent = (content = "", path = "") => {
+    if (typeof path === "string" && (path.toLowerCase().endsWith(".jsx") || path.toLowerCase().endsWith(".tsx"))) {
+        return true;
+    }
+    if (!content || typeof content !== "string") return false;
+    return (
+        /<[A-Za-z][A-Za-z0-9_.-]*[\s\S]*\/?>/.test(content) ||
+        /className\s*=|onClick\s*=|ReactDOM\.createRoot|ReactDOM\.render|React\.useState|React\.useEffect/.test(content)
+    );
+};
+
+/**
  * Inlines CSS and JS files into an HTML entry file, creating a self-contained sandboxed preview.
  * Includes Tailwind CDN if modern styling classes are used, and attaches a safe error catcher.
  *
@@ -177,16 +191,35 @@ export const bundleCodePreview = (files = [], entryPath = "index.html") => {
                 }
             }
 
-            if (file.path.endsWith(".js") && !file.path.endsWith(".test.js")) {
+            if ((file.path.endsWith(".js") || file.path.endsWith(".jsx")) && !file.path.endsWith(".test.js")) {
                 const transformedJs = transformScriptForSandbox(file.content);
-                const scriptRegex = new RegExp(`<script[^>]*src=["'][^"']*${escapedFileName}["'][^>]*>(?:\\s*<\\/script>)?`, "gi");
+                const scriptRegex = new RegExp(`<script([^>]*)src=["'][^"']*${escapedFileName}["']([^>]*)>(?:\\s*<\\/script>)?`, "gi");
+                const isReactOrJsx =
+                    isJsxOrReactContent(file.content, file.path) ||
+                    htmlContent.includes("text/babel") ||
+                    htmlContent.includes("@babel/standalone") ||
+                    htmlContent.includes("babel.min.js");
+
                 if (scriptRegex.test(htmlContent)) {
-                    htmlContent = htmlContent.replace(scriptRegex, `<script>\n/* Inlined: ${file.path} */\n${transformedJs}\n</script>`);
+                    htmlContent = htmlContent.replace(scriptRegex, (match, before, after) => {
+                        const attrs = `${before || ""} ${after || ""}`;
+                        let scriptType = "";
+                        if (/type=["']text\/babel["']/i.test(attrs) || isReactOrJsx) {
+                            scriptType = ' type="text/babel"';
+                        } else if (/type=["']module["']/i.test(attrs)) {
+                            scriptType = ' type="module"';
+                        } else {
+                            const typeMatch = attrs.match(/type=["']([^"']+)["']/i);
+                            if (typeMatch) scriptType = ` type="${typeMatch[1]}"`;
+                        }
+                        return `<script${scriptType}>\n/* Inlined: ${file.path} */\n${transformedJs}\n</script>`;
+                    });
                 } else if (!htmlContent.includes(file.content.slice(0, 30))) {
+                    const tag = isReactOrJsx ? '<script type="text/babel">' : '<script>';
                     if (htmlContent.includes("</body>")) {
-                        htmlContent = htmlContent.replace("</body>", `<script>\n/* Inlined: ${file.path} */\n${transformedJs}\n</script>\n</body>`);
+                        htmlContent = htmlContent.replace("</body>", `${tag}\n/* Inlined: ${file.path} */\n${transformedJs}\n</script>\n</body>`);
                     } else {
-                        htmlContent += `\n<script>\n/* Inlined: ${file.path} */\n${transformedJs}\n</script>`;
+                        htmlContent += `\n${tag}\n/* Inlined: ${file.path} */\n${transformedJs}\n</script>`;
                     }
                 }
             }
@@ -200,10 +233,38 @@ export const bundleCodePreview = (files = [], entryPath = "index.html") => {
                 htmlContent = htmlContent.replace("<html>", '<html>\n<head>\n  <script src="https://cdn.tailwindcss.com"></script>\n</head>');
             }
         }
+
+        // Auto-inject Babel CDN if JSX or Babel script tag is present and Babel is not loaded
+        const requiresBabel = htmlContent.includes('type="text/babel"') || isJsxOrReactContent(htmlContent);
+        if (requiresBabel && !htmlContent.includes("@babel/standalone") && !htmlContent.includes("babel.min.js")) {
+            const babelTag = '  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>';
+            if (htmlContent.includes("<head>")) {
+                htmlContent = htmlContent.replace("<head>", `<head>\n${babelTag}`);
+            } else if (htmlContent.includes("<html>")) {
+                htmlContent = htmlContent.replace("<html>", `<html>\n<head>\n${babelTag}\n</head>`);
+            } else {
+                htmlContent = `${babelTag}\n${htmlContent}`;
+            }
+        }
+
+        // Auto-inject React & ReactDOM CDN if React/ReactDOM is referenced but not loaded
+        const referencesReact = htmlContent.includes("React.") || htmlContent.includes("ReactDOM.") || requiresBabel;
+        const hasReactCdn =
+            htmlContent.includes("/react@") ||
+            htmlContent.includes("/react.") ||
+            htmlContent.includes("react.development") ||
+            htmlContent.includes("react.production");
+        if (referencesReact && !hasReactCdn) {
+            const reactTags =
+                '  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>\n  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>';
+            if (htmlContent.includes("<head>")) {
+                htmlContent = htmlContent.replace("<head>", `<head>\n${reactTags}`);
+            }
+        }
     }
 
     // Inject CSP (Content Security Policy) to restrict outbound frame/object execution while permitting CDN styles, fonts, and images
-    const cspMeta = '<meta http-equiv="Content-Security-Policy" content="default-src \'self\' \'unsafe-inline\' \'unsafe-eval\' data: blob: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src * data: blob: https:; font-src * data: https:; style-src \'self\' \'unsafe-inline\' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://fonts.googleapis.com; connect-src \'self\' data: blob:; frame-src \'none\'; object-src \'none\'; base-uri \'none\';">';
+    const cspMeta = '<meta http-equiv="Content-Security-Policy" content="default-src \'self\' \'unsafe-inline\' \'unsafe-eval\' data: blob: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com https://cdn.jsdelivr.net https://esm.sh; img-src * data: blob: https:; font-src * data: https:; style-src \'self\' \'unsafe-inline\' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://fonts.googleapis.com https://unpkg.com https://cdn.jsdelivr.net; script-src \'self\' \'unsafe-inline\' \'unsafe-eval\' data: blob: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://unpkg.com https://cdn.jsdelivr.net https://esm.sh; connect-src \'self\' data: blob:; frame-src \'none\'; object-src \'none\'; base-uri \'none\';">';
 
     // In-memory Storage & Cookie polyfill for strict sandboxed previews (prevents SecurityError when allow-same-origin is omitted)
     const sandboxStorageShim = `
@@ -323,42 +384,45 @@ export const bundleCodePreview = (files = [], entryPath = "index.html") => {
   })();
   </script>`;
 
-    if (htmlContent.includes("<head>")) {
-        htmlContent = htmlContent.replace("<head>", `<head>\n  ${cspMeta}\n${sandboxStorageShim}`);
-    } else if (htmlContent.includes("<html>")) {
-        htmlContent = htmlContent.replace("<html>", `<html><head>${cspMeta}\n${sandboxStorageShim}</head>`);
-    } else {
-        htmlContent = `<head>${cspMeta}\n${sandboxStorageShim}</head>\n${htmlContent}`;
-    }
-
-    // Inject iframe error catching banner
+    // Early error catcher injected into <head> so it captures parsing & execution errors
     const errorCatcherScript = `
-<script>
-window.addEventListener('error', function(event) {
-  var banner = document.getElementById('orbit-runtime-error-banner');
-  if (!banner) {
-    banner = document.createElement('div');
-    banner.id = 'orbit-runtime-error-banner';
-    banner.style.cssText = 'position:fixed;bottom:12px;left:12px;right:12px;background:#ef4444;color:#ffffff;padding:10px 14px;border-radius:8px;font-family:monospace;font-size:12px;z-index:999999;box-shadow:0 4px 12px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:space-between;';
-    var textSpan = document.createElement('span');
-    textSpan.id = 'orbit-runtime-error-text';
-    var closeBtn = document.createElement('button');
-    closeBtn.textContent = '✕';
-    closeBtn.style.cssText = 'background:none;border:none;color:#fff;font-size:14px;cursor:pointer;padding:0 4px;margin-left:8px;opacity:0.8;';
-    closeBtn.onclick = function() { banner.remove(); };
-    banner.appendChild(textSpan);
-    banner.appendChild(closeBtn);
-    document.body.appendChild(banner);
-  }
-  var span = document.getElementById('orbit-runtime-error-text');
-  if (span) span.textContent = 'Runtime error: ' + (event.message || 'Script error');
-});
-</script>
-`;
-    if (htmlContent.includes("</body>")) {
-        htmlContent = htmlContent.replace("</body>", `${errorCatcherScript}\n</body>`);
+  <script id="orbit-runtime-error-catcher">
+  window.addEventListener('error', function(event) {
+    var banner = document.getElementById('orbit-runtime-error-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'orbit-runtime-error-banner';
+      banner.style.cssText = 'position:fixed;bottom:12px;left:12px;right:12px;background:#ef4444;color:#ffffff;padding:10px 14px;border-radius:8px;font-family:monospace;font-size:12px;z-index:999999;box-shadow:0 4px 12px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:space-between;';
+      var textSpan = document.createElement('span');
+      textSpan.id = 'orbit-runtime-error-text';
+      var closeBtn = document.createElement('button');
+      closeBtn.textContent = '✕';
+      closeBtn.style.cssText = 'background:none;border:none;color:#fff;font-size:14px;cursor:pointer;padding:0 4px;margin-left:8px;opacity:0.8;';
+      closeBtn.onclick = function() { banner.remove(); };
+      banner.appendChild(textSpan);
+      banner.appendChild(closeBtn);
+      if (document.body) {
+        document.body.appendChild(banner);
+      } else {
+        window.addEventListener('DOMContentLoaded', function() {
+          if (document.body && !document.getElementById('orbit-runtime-error-banner')) {
+            document.body.appendChild(banner);
+          }
+        });
+      }
+    }
+    var span = document.getElementById('orbit-runtime-error-text');
+    if (span) span.textContent = 'Runtime error: ' + (event.message || 'Script error');
+  });
+  </script>`;
+
+    const headInject = `${cspMeta}\n${sandboxStorageShim}\n${errorCatcherScript}`;
+    if (htmlContent.includes("<head>")) {
+        htmlContent = htmlContent.replace("<head>", `<head>\n  ${headInject}`);
+    } else if (htmlContent.includes("<html>")) {
+        htmlContent = htmlContent.replace("<html>", `<html><head>${headInject}</head>`);
     } else {
-        htmlContent += errorCatcherScript;
+        htmlContent = `<head>${headInject}</head>\n${htmlContent}`;
     }
 
     return htmlContent;

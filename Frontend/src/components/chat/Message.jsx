@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import downloadFile from "../../lib/download.js"
 import AssistantOrb from "./AssistantOrb.jsx"
 import SlideDeckViewer from "./SlideDeckViewer.jsx"
 import PdfDocumentCard from "./PdfDocumentCard.jsx"
@@ -49,28 +50,12 @@ function Message({ message, onActionClick, onOpenArtifact }) {
       const res = await fetch(url, { mode: "cors" })
       if (!res.ok) throw new Error("Fetch error")
       const blob = await res.blob()
-      const blobUrl = window.URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = blobUrl
-      link.download = `${safeTitle}.jpg`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(blobUrl)
-      setDownloadedUrl(url)
-      setTimeout(() => setDownloadedUrl(null), 2500)
+      downloadFile(blob, `${safeTitle}.jpg`)
     } catch {
-      const link = document.createElement("a")
-      link.href = url
-      link.target = "_blank"
-      link.rel = "noreferrer"
-      link.download = `${safeTitle}.jpg`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      setDownloadedUrl(url)
-      setTimeout(() => setDownloadedUrl(null), 2500)
+      downloadFile(url, `${safeTitle}.jpg`)
     }
+    setDownloadedUrl(url)
+    setTimeout(() => setDownloadedUrl(null), 2500)
   }
 
   return (

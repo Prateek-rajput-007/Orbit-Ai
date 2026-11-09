@@ -12,6 +12,7 @@ import {
   fetchConversationMessages,
   getConversationSummaries,
 } from "./getConversation.js"
+import { readAgentEventStream } from "./agentStreamReader.js"
 
 export function useConversations(user) {
   const queryClient = useQueryClient()
@@ -108,7 +109,7 @@ export function useConversations(user) {
 
   const sendMutation = useMutation({
     mutationFn: async ({ conversationId, prompt, title, agentMode, attachment, clientRequestId }) => {
-      let data = null
+      let data
       let accumulatedTokens = ""
 
       turnDiagnostics.current.tRequestStart = performance.now()
@@ -155,65 +156,26 @@ export function useConversations(user) {
             throw err
           }
 
-          const contentType = response.headers.get("content-type") || ""
-          if (contentType.includes("text/event-stream") && response.body) {
-            const reader = response.body.getReader()
-            const decoder = new TextDecoder()
-            let buffer = ""
-            let currentEvent = "message"
-
-            const processLines = (lines) => {
-              for (const rawLine of lines) {
-                const line = rawLine.trimEnd()
-                if (!line || line.startsWith(":")) {
-                  // Ignore blank lines and SSE comment keepalives (e.g. ": keepalive")
-                  continue
-                }
-                if (line.startsWith("event: ")) {
-                  currentEvent = line.slice(7).trim()
-                } else if (line.startsWith("data: ")) {
-                  try {
-                    const parsed = JSON.parse(line.slice(6))
-                    if (currentEvent === "token" && typeof parsed.token === "string") {
-                      if (!turnDiagnostics.current.tFirstToken) {
-                        turnDiagnostics.current.tFirstToken = performance.now()
-                      }
-                      accumulatedTokens += parsed.token
-                      setStreamingText(accumulatedTokens)
-                    } else if (currentEvent === "stage" && parsed.message) {
-                      if (!turnDiagnostics.current.tFirstStage) {
-                        turnDiagnostics.current.tFirstStage = performance.now()
-                      }
-                      setGeneratingStage(parsed.message)
-                    } else if (currentEvent === "ready") {
-                      turnDiagnostics.current.tFinalReady = performance.now()
-                      data = parsed
-                    } else if (currentEvent === "error") {
-                      throw new Error(parsed.message || parsed.error || "Agent request failed")
-                    }
-                  } catch (parseErr) {
-                    if (currentEvent === "error") throw parseErr
-                  }
-                }
+          data = await readAgentEventStream(response, {
+            onToken: (token) => {
+              if (!turnDiagnostics.current.tFirstToken) {
+                turnDiagnostics.current.tFirstToken = performance.now()
               }
-            }
-
-            while (true) {
-              const { done, value } = await reader.read()
-              if (done) {
-                if (buffer.trim()) {
-                  processLines(buffer.split("\n"))
-                }
-                break
+              accumulatedTokens += token
+              setStreamingText(accumulatedTokens)
+            },
+            onStage: (message) => {
+              if (!turnDiagnostics.current.tFirstStage) {
+                turnDiagnostics.current.tFirstStage = performance.now()
               }
-              buffer += decoder.decode(value, { stream: true })
-              const lines = buffer.split("\n")
-              buffer = lines.pop() || ""
-              processLines(lines)
-            }
-          } else {
+              setGeneratingStage(message)
+            },
+            onReady: () => {
+              turnDiagnostics.current.tFinalReady = performance.now()
+            },
+          })
+          if (data && !turnDiagnostics.current.tFinalReady) {
             turnDiagnostics.current.tFinalReady = performance.now()
-            data = await response.json()
           }
         } catch (streamErr) {
           if (abortController.signal.aborted || streamErr.name === "AbortError") {

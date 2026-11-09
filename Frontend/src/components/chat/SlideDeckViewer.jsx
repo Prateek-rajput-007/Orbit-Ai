@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import downloadFile from "../../lib/download.js"
 import {
   ChevronLeft,
   ChevronRight,
@@ -32,19 +33,10 @@ export default function SlideDeckViewer({ slides = [], presentationFile = null }
 
   const handleDownload = () => {
     if (!presentationFile?.dataUrl) return
-
-    try {
-      const link = document.createElement("a")
-      link.href = presentationFile.dataUrl
-      link.download = presentationFile.fileName || "orbit-presentation.pptx"
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      setDownloadSuccess(true)
-      setTimeout(() => setDownloadSuccess(false), 2500)
-    } catch (err) {
-      console.error("Failed to trigger download:", err)
-    }
+    const targetName = presentationFile.fileName || "orbit-presentation.pptx"
+    downloadFile(presentationFile.dataUrl, targetName)
+    setDownloadSuccess(true)
+    setTimeout(() => setDownloadSuccess(false), 2500)
   }
 
   return (

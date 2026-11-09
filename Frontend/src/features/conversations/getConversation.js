@@ -51,5 +51,3 @@ export const fetchConversationMessages = async (conversationId) => {
     )
     .map(toMessage)
 }
-
-export const getConversation = getConversationSummaries

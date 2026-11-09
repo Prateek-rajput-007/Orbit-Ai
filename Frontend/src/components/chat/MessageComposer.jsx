@@ -1,15 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { ArrowUp, Check, ChevronDown, Paperclip, Square, X } from "lucide-react"
-
-const agentOptions = [
-  { value: "auto", label: "Auto" },
-  { value: "chat", label: "Chat" },
-  { value: "search", label: "Search" },
-  { value: "coding", label: "Coding" },
-  { value: "pdf", label: "PDF" },
-  { value: "ppt", label: "Presentation" },
-  { value: "vision", label: "Vision" },
-]
+import { AGENT_OPTIONS, AGENT_FILE_ACCEPT, isAttachmentSupportedByAgent } from "../../config/agents.js"
 
 function MessageComposer({
   agentMode,
@@ -30,7 +21,7 @@ function MessageComposer({
   const textareaRef = useRef(null)
   const fileInputRef = useRef(null)
   const agentMenuRef = useRef(null)
-  const selectedAgent = agentOptions.find(({ value }) => value === agentMode) ?? agentOptions[0]
+  const selectedAgent = AGENT_OPTIONS.find(({ value }) => value === agentMode) ?? AGENT_OPTIONS[0]
 
   useEffect(() => {
     if (externalDraft !== undefined && textareaRef.current) {
@@ -112,15 +103,7 @@ function MessageComposer({
   const selectAgent = (nextMode) => {
     onAgentModeChange(nextMode)
     setAgentMenuOpen(false)
-    const attachmentIsPdf =
-      attachment &&
-      (attachment.type === "application/pdf" || attachment.name.toLowerCase().endsWith(".pdf"))
-    const attachmentIsImage =
-      attachment && ["image/jpeg", "image/png", "image/webp"].includes(attachment.type)
-    const supportedByMode =
-      nextMode === "auto" ||
-      (nextMode === "pdf" && attachmentIsPdf) ||
-      (nextMode === "vision" && attachmentIsImage)
+    const supportedByMode = isAttachmentSupportedByAgent(nextMode, attachment)
 
     if (attachment && !supportedByMode) {
       setAttachment(null)
@@ -133,10 +116,10 @@ function MessageComposer({
   const canAttach = ["auto", "pdf", "vision"].includes(agentMode)
   const acceptedFiles =
     agentMode === "pdf"
-      ? ".pdf,application/pdf"
+      ? AGENT_FILE_ACCEPT.pdf
       : agentMode === "vision"
-        ? "image/jpeg,image/png,image/webp"
-        : ".pdf,application/pdf,image/jpeg,image/png,image/webp"
+        ? AGENT_FILE_ACCEPT.vision
+        : AGENT_FILE_ACCEPT.all
   const canSend = Boolean(draft.trim()) && !isSending && !isDisabled
 
   const placeholderText =
@@ -221,7 +204,7 @@ function MessageComposer({
                   role="menu"
                   aria-label="Agent options"
                 >
-                  {agentOptions.map(({ value, label }) => (
+                  {AGENT_OPTIONS.map(({ value, label }) => (
                     <button
                       className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs transition cursor-pointer ${
                         value === agentMode

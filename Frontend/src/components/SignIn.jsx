@@ -15,357 +15,17 @@ import {
   Globe2,
   Home,
   Layers,
-  Loader2,
   MessageSquare,
   Monitor,
   Orbit,
   Presentation,
   Search,
-  Settings2,
   ShieldCheck,
   Sparkles,
-  Users,
   Zap,
 } from "lucide-react"
-import AssistantOrb from "./chat/AssistantOrb.jsx"
-
-// Official Google "G" Logo
-function GoogleIcon({ className = "size-5" }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        fill="#4285F4"
-        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-      />
-      <path
-        fill="#34A853"
-        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-      />
-      <path
-        fill="#EA4335"
-        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-      />
-    </svg>
-  )
-}
-
-// Premium SaaS Google Authentication CTA Component
-function GoogleAuthButton({
-  onSignIn,
-  isSigningIn = false,
-  disabled = false,
-  variant = "default",
-  className = "",
-}) {
-  const isDisabled = disabled || isSigningIn
-
-  const handleClick = (e) => {
-    if (isDisabled) {
-      e.preventDefault()
-      return
-    }
-    onSignIn?.(e)
-  }
-
-  if (variant === "compact") {
-    return (
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={isDisabled}
-        aria-busy={isSigningIn}
-        aria-label={isSigningIn ? "Connecting to Google…" : "Continue with Google"}
-        className={`group relative inline-flex h-9 items-center justify-center gap-2 rounded-full border border-white/15 border-t-white/25 bg-white/[0.06] px-4 text-xs font-medium text-white/90 shadow-sm backdrop-blur-md transition-all duration-150 ease-out hover:border-amber-400/50 hover:bg-white/[0.10] hover:text-white hover:shadow-md hover:shadow-amber-500/10 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#07080a] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none ${className}`}
-      >
-        {isSigningIn ? (
-          <>
-            <Loader2 className="size-3.5 shrink-0 animate-spin text-amber-400" aria-hidden="true" />
-            <span>Connecting…</span>
-          </>
-        ) : (
-          <>
-            <GoogleIcon className="size-3.5 shrink-0" />
-            <span>Sign in</span>
-            <ArrowRight
-              className="size-3 shrink-0 text-amber-400/70 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-amber-400"
-              aria-hidden="true"
-            />
-          </>
-        )}
-      </button>
-    )
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={isDisabled}
-      aria-busy={isSigningIn}
-      aria-label={isSigningIn ? "Connecting to Google…" : "Continue with Google"}
-      className={`group relative inline-flex h-11 sm:h-12 w-full items-center justify-center gap-3 rounded-full border border-white/[0.14] border-t-white/[0.28] bg-gradient-to-b from-white/[0.09] to-white/[0.04] px-6 text-[14.5px] sm:text-[15px] font-medium text-white shadow-[0_4px_20px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-md transition-all duration-200 ease-out hover:border-amber-400/60 hover:bg-white/[0.11] hover:shadow-[0_0_32px_rgba(234,189,88,0.22),0_4px_24px_rgba(0,0,0,0.7)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.985] active:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#07080a] disabled:cursor-not-allowed disabled:opacity-50 disabled:translate-y-0 disabled:scale-100 disabled:shadow-none disabled:hover:bg-white/[0.06] disabled:hover:border-white/10 ${className}`}
-    >
-      {isSigningIn ? (
-        <>
-          <Loader2 className="size-4 sm:size-5 shrink-0 animate-spin text-amber-400" aria-hidden="true" />
-          <span>Connecting to Google…</span>
-        </>
-      ) : (
-        <>
-          <GoogleIcon className="size-4 sm:size-5 shrink-0" />
-          <span className="tracking-tight text-white/95">Continue with Google</span>
-          <ArrowRight
-            className="size-4 shrink-0 text-amber-400 transition-all duration-200 group-hover:translate-x-1 group-hover:text-amber-300"
-            aria-hidden="true"
-          />
-        </>
-      )}
-    </button>
-  )
-}
-
-// 6 Core Agents directly implemented in Orbit's backend router
-const AGENT_SHOWCASE = [
-  {
-    id: "coding",
-    name: "Coding Agent",
-    badge: "Interactive Code Sandbox",
-    icon: Code2,
-    tagline: "Full-stack code generation, debugging, and live preview artifacts.",
-    description: "Build full components, refactor architectures, and run live interactive sandboxes with syntax-highlighted artifacts right in your canvas.",
-    metric: "Live Sandbox & Preview",
-    promptPreview: "Build a responsive analytics dashboard with live trend charts",
-    demo: {
-      type: "code",
-      fileName: "AnalyticsDashboard.jsx",
-      stats: "Compiled in 38ms • 0 errors • Live Sandbox",
-      codeSnippet: `export function TrendAnalytics({ data }) {
-  const [metric, setMetric] = useState('throughput')
-  return (
-    <div className="rounded-2xl border border-white/10 bg-night p-6">
-      <div className="flex items-center justify-between pb-4">
-        <span className="text-xs font-mono text-accent">● LIVE PREVIEW</span>
-        <Badge variant="glow">Active Agent</Badge>
-      </div>
-      <LatencyChart points={data[metric]} color="#eabd58" />
-    </div>
-  )
-}`,
-    },
-  },
-  {
-    id: "ppt",
-    name: "Presentation Agent",
-    badge: "Dynamic Slide Decks",
-    icon: Presentation,
-    tagline: "Turn ideas, research, or documents into structured slide decks.",
-    description: "Orbit structures topics into engaging presentation slides with bulleted takeaways, presenter notes, and interactive slideshow navigation.",
-    metric: "Interactive Slide Viewer",
-    promptPreview: "Create a 6-slide deck on AI Multi-Agent Architecture",
-    demo: {
-      type: "slide",
-      slideNumber: "02 / 06",
-      topic: "System Architecture & Intent Routing",
-      bullets: [
-        "Dynamic router analyzes user query and attachment context",
-        "Dispatches to specialized agent (Coding, PPT, PDF, Vision, Search)",
-        "Streams artifacts directly into conversational canvas",
-      ],
-      tag: "Presentation Ready",
-    },
-  },
-  {
-    id: "search",
-    name: "AI Web Search",
-    badge: "Real-Time Intelligence",
-    icon: Search,
-    tagline: "Live web fact-checking and research with cited external sources.",
-    description: "Extract current information, explore breaking technical developments, and verify claims with direct clickable citations.",
-    metric: "Live Web & Citations",
-    promptPreview: "What are the latest breakthroughs in agentic AI orchestration?",
-    demo: {
-      type: "search",
-      query: "Agentic AI Orchestration Benchmarks 2026",
-      sources: ["arxiv.org/abs/2604.1029", "deepmind.google/research", "github.com/agent-benchmark"],
-      takeaway: "Multi-agent graph topologies improve task completion rates by 68% over monolithic LLM prompts.",
-    },
-  },
-  {
-    id: "pdf",
-    name: "PDF Intelligence",
-    badge: "Document Analysis & Cheat Sheets",
-    icon: FileText,
-    tagline: "Summarize complex papers and generate formatted PDF guides.",
-    description: "Upload long PDF documents for semantic analysis, deep Q&A, and generate downloadable cheat sheets and interview handouts.",
-    metric: "PDF Artifacts & Export",
-    promptPreview: "Analyze this 30-page architecture document and build an interview cheat sheet",
-    demo: {
-      type: "pdf",
-      title: "System_Architecture_Specs_v2.pdf",
-      pages: "28 pages analyzed",
-      sections: ["Core Microservices", "Agent State Machine", "Event Bus Latency"],
-      badge: "Cheat Sheet Artifact Ready",
-    },
-  },
-  {
-    id: "vision",
-    name: "Vision & Visuals",
-    badge: "Multimodal Studio",
-    icon: Eye,
-    tagline: "Inspect diagrams, process visual documents, and generate imagery.",
-    description: "Upload screenshots, diagrams, and photos for instant OCR and structural analysis, or generate visual concept art with the generative vision engine.",
-    metric: "Diagram & Visual OCR",
-    promptPreview: "Analyze this cloud infrastructure diagram and produce a deployment matrix",
-    demo: {
-      type: "vision",
-      label: "Architecture_Topology.png",
-      resolution: "2400 × 1350 px",
-      detected: "4 microservices • Gateway • Redis Pub/Sub • MongoDB Cluster",
-      status: "Diagram parsed successfully",
-    },
-  },
-  {
-    id: "router",
-    name: "Autonomous Router",
-    badge: "Zero-Friction Orchestration",
-    icon: BrainCircuit,
-    tagline: "Never switch modes manually. Orbit routes your intent automatically.",
-    description: "Ask naturally. Orbit's neural routing layer inspects prompts and attachments to deploy the ideal specialist agent without mode configuration.",
-    metric: "Autonomous Intent Routing",
-    promptPreview: "Create a cheat sheet, write the code, and give me a slide deck",
-    demo: {
-      type: "router",
-      query: "Build a slide deck and write the React code for our launch",
-      stages: [
-        { label: "Intent Parsing", status: "Done", time: "12ms" },
-        { label: "PPT Agent Active", status: "Active", time: "Slides 1-6" },
-        { label: "Coding Agent Pipeline", status: "Queued", time: "Next" },
-      ],
-    },
-  },
-]
-
-const CAPABILITY_PILLARS = [
-  {
-    icon: Code2,
-    title: "Interactive Full-Stack Code Studio",
-    description: "Generate, test, and edit real React, Node, and web code with live sandbox preview artifacts and instant export.",
-    tag: "Artifacts & Sandbox",
-  },
-  {
-    icon: Presentation,
-    title: "Instant Presentation & Slide Decks",
-    description: "Turn outlines and documents into professional multi-slide presentations with an interactive slide viewer.",
-    tag: "Slide Deck Engine",
-  },
-  {
-    icon: Search,
-    title: "Real-Time Web Intelligence",
-    description: "Live search queries and fact-checked synthesis with real citations from verified internet sources.",
-    tag: "Live Citations",
-  },
-  {
-    icon: FileText,
-    title: "Deep PDF & Document Intelligence",
-    description: "Chat with long documents, extract structured summaries, and generate downloadable PDF interview cheat sheets.",
-    tag: "PDF Artifacts",
-  },
-  {
-    icon: Eye,
-    title: "Multimodal Vision & Concept Studio",
-    description: "Understand complex diagrams, extract handwritten notes, and generate creative visual assets on demand.",
-    tag: "Visual Understanding",
-  },
-  {
-    icon: BrainCircuit,
-    title: "Autonomous Agent Orchestration",
-    description: "Zero mode toggling. Orbit routes prompts and attachments to the perfect specialist agent automatically.",
-    tag: "Neural Routing",
-  },
-]
-
-// 5 Interactive Experience Screens for the 3D Hero Tablet Mockup
-const HERO_SCREENS = {
-  coding: {
-    id: "coding",
-    icon: Code2,
-    sidebarId: "coding",
-    label: "Coding",
-    prompt: "Build a modern dashboard with analytics charts",
-    assistantLabel: "Here's your live dashboard artifact:",
-    cardTitle: "TrendAnalytics.jsx",
-    cardBadge: "Interactive",
-    type: "chart",
-    metricValue: "+38.4%",
-    metricLabel: "Throughput",
-  },
-  search: {
-    id: "search",
-    icon: Search,
-    sidebarId: "search",
-    label: "Research",
-    prompt: "What are the latest breakthroughs in agentic AI in 2026?",
-    assistantLabel: "Synthesized live research from 3 verified web citations:",
-    cardTitle: "WebIntelligence_Synthesis",
-    cardBadge: "Live Citations",
-    type: "search",
-    sources: ["arxiv.org/abs/2604.1029", "deepmind.google/research"],
-    summary: "Multi-agent graph topologies improve complex task completion rates by +68% over single prompts.",
-    metricValue: "99.4%",
-    metricLabel: "Confidence",
-  },
-  pdf: {
-    id: "pdf",
-    icon: FileText,
-    sidebarId: "pdf",
-    label: "Documents",
-    prompt: "Analyze this 30-page architecture document",
-    assistantLabel: "Parsed PDF & generated interview cheat sheet:",
-    cardTitle: "System_Architecture_Specs.pdf",
-    cardBadge: "Artifact Ready",
-    type: "pdf",
-    sections: ["01. Microservices Topology", "02. Intent Routing Layer", "03. Event Bus Latency"],
-    metricValue: "28 Pages",
-    metricLabel: "Analyzed",
-  },
-  ppt: {
-    id: "ppt",
-    icon: Presentation,
-    sidebarId: "ppt",
-    label: "Presentations",
-    prompt: "Create a 6-slide deck on Multi-Agent Architecture",
-    assistantLabel: "Interactive SlideDeckViewer ready (Slide 02/06):",
-    cardTitle: "Deck_Architecture_2026.deck",
-    cardBadge: "Slide 02 / 06",
-    type: "ppt",
-    slideTitle: "Autonomous Intent Routing & Synthesis",
-    bullets: [
-      "Dynamic router evaluates queries & attachments automatically",
-      "Parallel synthesis across 6 specialized agents",
-    ],
-    metricValue: "6 Slides",
-    metricLabel: "Deck Ready",
-  },
-  vision: {
-    id: "vision",
-    icon: Eye,
-    sidebarId: "vision",
-    label: "Vision",
-    prompt: "Analyze this cloud infrastructure topology diagram",
-    assistantLabel: "Visual OCR parsed 4 microservices from diagram:",
-    cardTitle: "Architecture_Topology.png",
-    cardBadge: "Parsed 2400×1350",
-    type: "vision",
-    detected: "Gateway • Redis Pub/Sub • MongoDB • 4 Microservices",
-    status: "Structural topology valid • Ready to scaffold",
-    metricValue: "100%",
-    metricLabel: "OCR Accuracy",
-  },
-}
+import GoogleAuthButton from "./signin/GoogleAuthButton.jsx"
+import { AGENT_SHOWCASE, CAPABILITY_PILLARS, HERO_SCREENS } from "./signin/signinData.js"
 
 function SignIn({ error, isSigningIn, onSignIn }) {
   const reduceMotion = useReducedMotion()
@@ -425,11 +85,15 @@ function SignIn({ error, isSigningIn, onSignIn }) {
 
   useEffect(() => {
     const fullText = HERO_SCREENS[heroTabId]?.prompt || ""
-    setTypedPrompt("")
-    setTabletPhase("typing")
-
     let currentLength = 0
     let thinkTimer = null
+
+    // Reset prompt state asynchronously to prevent cascading render warnings
+    const resetTimer = setTimeout(() => {
+      setTypedPrompt("")
+      setTabletPhase("typing")
+    }, 0)
+
     // Prompt types out naturally across ~5.4 seconds
     const charInterval = Math.max(30, Math.floor(5400 / (fullText.length || 1)))
 
@@ -449,6 +113,7 @@ function SignIn({ error, isSigningIn, onSignIn }) {
     }, charInterval)
 
     return () => {
+      clearTimeout(resetTimer)
       clearInterval(typingTimer)
       if (thinkTimer) clearTimeout(thinkTimer)
     }

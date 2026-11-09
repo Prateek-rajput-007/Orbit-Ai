@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { motion } from "framer-motion"
+import downloadFile from "../../lib/download.js"
 import {
   X,
   Download,
@@ -28,18 +29,10 @@ export default function PdfArtifactPanel({ document: pdfDoc, onClose }) {
 
   const handleDownload = () => {
     if (!dataUrl) return
-    try {
-      const link = window.document.createElement("a")
-      link.href = dataUrl
-      link.download = fileName.toLowerCase().endsWith(".pdf") ? fileName : `${fileName}.pdf`
-      window.document.body.appendChild(link)
-      link.click()
-      window.document.body.removeChild(link)
-      setDownloadSuccess(true)
-      setTimeout(() => setDownloadSuccess(false), 2500)
-    } catch (err) {
-      console.error("Unable to trigger PDF download:", err)
-    }
+    const targetName = fileName.toLowerCase().endsWith(".pdf") ? fileName : `${fileName}.pdf`
+    downloadFile(dataUrl, targetName)
+    setDownloadSuccess(true)
+    setTimeout(() => setDownloadSuccess(false), 2500)
   }
 
   return (

@@ -42,17 +42,20 @@ function ChatArea({
     }
   }, [messages.length, isSending, streamingText])
 
-  const isCodingProgress =
-    agentMode === "coding" ||
-    (Boolean(generatingStage) &&
-      !streamingText &&
-      (generatingStage.toLowerCase().includes("code") ||
-        generatingStage.toLowerCase().includes("application") ||
-        generatingStage.toLowerCase().includes("architecture") ||
-        generatingStage.toLowerCase().includes("project") ||
-        generatingStage.toLowerCase().includes("sandbox") ||
-        generatingStage.toLowerCase().includes("synthesizing full-stack") ||
-        generatingStage.toLowerCase().includes("parsing multi-file")))
+  const isCodingProgress = useMemo(() => {
+    if (agentMode === "coding") return true
+    if (!generatingStage || streamingText) return false
+    const stageLower = generatingStage.toLowerCase()
+    return (
+      stageLower.includes("code") ||
+      stageLower.includes("application") ||
+      stageLower.includes("architecture") ||
+      stageLower.includes("project") ||
+      stageLower.includes("sandbox") ||
+      stageLower.includes("synthesizing full-stack") ||
+      stageLower.includes("parsing multi-file")
+    )
+  }, [agentMode, generatingStage, streamingText])
 
   const displayMessages = useMemo(() => {
     if (!isSending) return messages
