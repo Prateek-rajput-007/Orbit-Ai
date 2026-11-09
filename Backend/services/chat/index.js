@@ -1,9 +1,8 @@
+import "dotenv/config";
 import express from "express";
-import dotenv from "dotenv";
 import morgan from "morgan";
 import connectDB from "./config/db.js";
 import chatRoutes from "./routes/chat.routes.js";
-dotenv.config();
 
 const port = process.env.PORT || process.env.port || 5002;
 const app = express();

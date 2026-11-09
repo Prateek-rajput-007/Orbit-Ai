@@ -1,20 +1,29 @@
 import Redis from "ioredis";
 
-let redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
+function getRedisUrl() {
+  if (!process.env.REDIS_URL) {
+    try {
+      if (typeof process.loadEnvFile === "function") {
+        process.loadEnvFile();
+      }
+    } catch {}
+  }
 
-// Automatically convert to rediss:// if connecting to Upstash cloud
-if (redisUrl.includes("upstash.io") && redisUrl.startsWith("redis://")) {
-  redisUrl = redisUrl.replace("redis://", "rediss://");
+  let url = process.env.REDIS_URL || "redis://localhost:6379";
+  if (typeof url === "string" && url.includes("upstash.io") && url.startsWith("redis://")) {
+    url = url.replace("redis://", "rediss://");
+  }
+  return url;
 }
 
-const isTls = redisUrl.startsWith("rediss://") || redisUrl.includes("upstash.io");
+const redisUrl = getRedisUrl();
+const isTls = typeof redisUrl === "string" && (redisUrl.startsWith("rediss://") || redisUrl.includes("upstash.io"));
 
 const redis = new Redis(redisUrl, {
   maxRetriesPerRequest: 3,
   enableReadyCheck: false,
   tls: isTls ? { rejectUnauthorized: false } : undefined,
   retryStrategy(times) {
-    // Reconnect with backoff capped at 2 seconds
     return Math.min(times * 50, 2000);
   },
 });
