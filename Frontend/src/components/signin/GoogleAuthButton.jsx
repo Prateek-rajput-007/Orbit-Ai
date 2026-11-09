@@ -73,40 +73,30 @@ export function GoogleAuthButton({
   }
 
   return (
-    <div className={`relative inline-block ${className}`}>
-      {/* Outer ambient glow */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -inset-1 rounded-2xl bg-gradient-to-r from-amber-400/30 via-amber-300/40 to-amber-500/30 opacity-70 blur-lg transition-opacity duration-300 group-hover:opacity-100"
-      />
-
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={isDisabled}
-        aria-busy={isSigningIn}
-        aria-label={isSigningIn ? "Connecting to Google…" : "Continue with Google"}
-        className="group relative flex h-12 w-full min-w-[260px] items-center justify-center gap-3 rounded-xl border border-amber-300/60 border-t-amber-200/90 bg-gradient-to-b from-amber-300 via-accent to-amber-500 px-6 font-display text-sm font-semibold text-night shadow-[0_12px_28px_rgba(234,189,88,0.35),inset_0_1px_0_0_rgba(255,255,255,0.7)] transition-all duration-200 ease-out hover:brightness-105 hover:shadow-[0_16px_36px_rgba(234,189,88,0.45),inset_0_1px_0_0_rgba(255,255,255,0.9)] active:scale-[0.985] active:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#07080a] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none sm:min-w-[280px]"
-      >
-        {isSigningIn ? (
-          <>
-            <Loader2 className="size-4 shrink-0 animate-spin text-night" aria-hidden="true" />
-            <span>Connecting to Google…</span>
-          </>
-        ) : (
-          <>
-            <div className="grid size-6 shrink-0 place-items-center rounded-md bg-white shadow-sm">
-              <GoogleIcon className="size-4" />
-            </div>
-            <span>Continue with Google</span>
-            <ArrowRight
-              className="size-4 shrink-0 transition-transform duration-200 group-hover:translate-x-1"
-              aria-hidden="true"
-            />
-          </>
-        )}
-      </button>
-    </div>
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={isDisabled}
+      aria-busy={isSigningIn}
+      aria-label={isSigningIn ? "Connecting to Google…" : "Continue with Google"}
+      className={`group relative inline-flex h-11 sm:h-12 w-full items-center justify-center gap-3 rounded-full border border-white/[0.14] border-t-white/[0.28] bg-gradient-to-b from-white/[0.09] to-white/[0.04] px-6 text-[14.5px] sm:text-[15px] font-medium text-white shadow-[0_4px_20px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-md transition-all duration-200 ease-out hover:border-amber-400/60 hover:bg-white/[0.11] hover:shadow-[0_0_32px_rgba(234,189,88,0.22),0_4px_24px_rgba(0,0,0,0.7)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.985] active:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#07080a] disabled:cursor-not-allowed disabled:opacity-50 disabled:translate-y-0 disabled:scale-100 disabled:shadow-none disabled:hover:bg-white/[0.06] disabled:hover:border-white/10 ${className}`}
+    >
+      {isSigningIn ? (
+        <>
+          <Loader2 className="size-4 sm:size-5 shrink-0 animate-spin text-amber-400" aria-hidden="true" />
+          <span>Connecting to Google…</span>
+        </>
+      ) : (
+        <>
+          <GoogleIcon className="size-4 sm:size-5 shrink-0" />
+          <span className="tracking-tight text-white/95">Continue with Google</span>
+          <ArrowRight
+            className="size-4 shrink-0 text-amber-400 transition-all duration-200 group-hover:translate-x-1 group-hover:text-amber-300"
+            aria-hidden="true"
+          />
+        </>
+      )}
+    </button>
   )
 }
 
