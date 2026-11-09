@@ -44,7 +44,7 @@ export const loginWithGoogle = async (req, res) => {
     res.cookie("session", sessionCookie, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: sessionExpiresIn
     });
     res.status(200).json({ message: "User logged in successfully", user });
@@ -64,7 +64,7 @@ export const logout = async (req, res) => {
     res.clearCookie("session", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax"
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax"
     });
     res.status(200).json({ message: "User logged out successfully" });
   } catch (error) {
