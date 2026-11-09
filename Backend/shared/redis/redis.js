@@ -1,6 +1,6 @@
 import Redis from "ioredis";
 
-let redisUrl = process.env.REDIS_URL;
+let redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
 
 // Automatically convert to rediss:// if connecting to Upstash cloud
 if (redisUrl.includes("upstash.io") && redisUrl.startsWith("redis://")) {
