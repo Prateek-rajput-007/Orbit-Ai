@@ -52,7 +52,7 @@ export const completeGoogleSignIn = async () => {
 export const logout = async () => {
   let backendError
   try {
-    await api.get("/api/auth/logout")
+    await api.post("/api/auth/logout")
   } catch (error) {
     backendError = error
   }

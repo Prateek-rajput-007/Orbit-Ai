@@ -4,6 +4,13 @@ import { extractText } from "../utils/extractText.js";
 import { parseCodeArtifact } from "../utils/codeArtifact.js";
 
 export const codingAgent = async (state = {}) => {
+    if (state?.isAborted?.()) {
+        return {
+            aiResponse: "",
+            codeArtifact: null,
+            retries: 0,
+        };
+    }
     const llm = getModel("coding");
     const conversationContext = formatConversationContext(state.history);
     const userPrompt = state?.prompt || "";

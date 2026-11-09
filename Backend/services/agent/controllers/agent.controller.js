@@ -3,6 +3,26 @@ import { getMemory } from "../config/memory.js";
 import { saveTurn, updateArtifactDeployment } from "../utils/getMessages.js";
 import { deployArtifactProject } from "../utils/deployment/deploymentManager.js";
 import { createTrace } from "../utils/telemetry.js";
+import {
+    acquireConcurrencyLease,
+    renewConcurrencyLease,
+    releaseConcurrencyLease,
+} from "../../../shared/security/concurrencyManager.js";
+import {
+    checkAndReserveIdempotency,
+    markIdempotencyCompleted,
+    clearIdempotencyReservation,
+} from "../../../shared/security/idempotencyManager.js";
+import {
+    checkAndConsumeDailyQuota,
+    rollbackDailyQuota,
+} from "../../../shared/security/usageManager.js";
+import {
+    validateAgentRequest,
+} from "../../../shared/security/requestValidator.js";
+
+const MAX_PROMPT_CHARS = parseInt(process.env.MAX_PROMPT_LENGTH || "16000", 10);
+const DAILY_AI_TURNS_LIMIT = parseInt(process.env.DAILY_AI_TURNS_LIMIT || "100", 10);
 
 function sanitizeErrorMessage(msg) {
     if (typeof msg !== "string") return "An unexpected error occurred";
@@ -23,6 +43,12 @@ export const agent = async (req, res) => {
     const isSse = req.headers["accept"] === "text/event-stream" || req.query?.stream === "true";
     let isClientDisconnected = false;
     let keepAliveTimer = null;
+    let leaseHeartbeatTimer = null;
+    let leaseAcquired = false;
+    let quotaConsumed = false;
+    let clientRequestId = null;
+    let userId = null;
+    let hasCompletedSuccessfully = false;
 
     res.on?.("close", () => {
         if (!res.writableEnded) {
@@ -31,6 +57,10 @@ export const agent = async (req, res) => {
         if (keepAliveTimer) {
             clearInterval(keepAliveTimer);
             keepAliveTimer = null;
+        }
+        if (leaseHeartbeatTimer) {
+            clearInterval(leaseHeartbeatTimer);
+            leaseHeartbeatTimer = null;
         }
     });
 
@@ -70,18 +100,16 @@ export const agent = async (req, res) => {
     };
 
     try {
-        const { prompt, conversationId, agentMode = "auto" } = req.body;
-        const userId = req.headers["user-id"];
-        if (typeof prompt !== "string" || !prompt.trim() || !conversationId) {
-            const errPayload = { message: "prompt and conversationId are required", error: "prompt and conversationId are required" };
-            if (isSse) {
-                sendEvent("error", errPayload);
-                return res.end();
-            }
-            return res.status(400).json(errPayload);
-        }
+        userId = req.headers["user-id"];
+        clientRequestId =
+            req.headers["idempotency-key"] ||
+            req.headers["x-request-id"] ||
+            req.body?.clientRequestId ||
+            trace.traceId;
+
+        // 1. Strict Authentication Barrier
         if (!userId) {
-            const errPayload = { message: "Unauthorized", error: "Unauthorized" };
+            const errPayload = { message: "Unauthorized", error: "Unauthorized", status: 401 };
             if (isSse) {
                 sendEvent("error", errPayload);
                 return res.end();
@@ -89,53 +117,148 @@ export const agent = async (req, res) => {
             return res.status(401).json(errPayload);
         }
 
-        const supportedAgents = new Set(["auto", "chat", "search", "coding", "pdf", "ppt", "vision"]);
-        if (!supportedAgents.has(agentMode)) {
-            const errPayload = { message: "Unsupported agent selection", error: "Unsupported agent selection" };
-            if (isSse) {
-                sendEvent("error", errPayload);
-                return res.end();
-            }
-            return res.status(400).json(errPayload);
-        }
-
-        const attachment = req.file;
-        const isPdf = Boolean(
-            attachment &&
-            (attachment.mimetype === "application/pdf" || attachment.originalname.toLowerCase().endsWith(".pdf")),
-        );
-        const isImage = ["image/jpeg", "image/png", "image/webp"].includes(attachment?.mimetype);
-        if (attachment && !isPdf && !isImage) {
-            const errPayload = { message: "Only PDF, JPEG, PNG, and WebP files are supported", error: "Unsupported file type" };
-            if (isSse) {
-                sendEvent("error", errPayload);
-                return res.end();
-            }
-            return res.status(400).json(errPayload);
-        }
-        if (attachment && isPdf && !attachment.buffer.subarray(0, 5).equals(Buffer.from("%PDF-"))) {
-            const errPayload = { message: "The uploaded file is not a valid PDF", error: "Invalid PDF format" };
-            if (isSse) {
-                sendEvent("error", errPayload);
-                return res.end();
-            }
-            return res.status(400).json(errPayload);
-        }
-        if (attachment && agentMode !== "auto" && agentMode !== (isPdf ? "pdf" : "vision")) {
+        // 2. Request Schema & Input Length Validation
+        const validation = validateAgentRequest(req.body, req.file, MAX_PROMPT_CHARS);
+        if (!validation.isValid) {
             const errPayload = {
-                message: `This file type requires the ${isPdf ? "PDF" : "Vision"} agent or Auto`,
-                error: `Mismatched agent mode for attachment`,
+                message: validation.message,
+                error: validation.error,
+                status: validation.status,
             };
             if (isSse) {
                 sendEvent("error", errPayload);
                 return res.end();
             }
-            return res.status(400).json(errPayload);
+            return res.status(validation.status).json(errPayload);
         }
+
+        const { prompt: promptText, conversationId, agentMode } = validation;
+        const requestPayload = {
+            prompt: promptText,
+            conversationId,
+            agentMode,
+            model: req.body?.model || "",
+            attachment: req.file ? {
+                originalname: req.file.originalname,
+                size: req.file.size,
+                mimetype: req.file.mimetype,
+                buffer: req.file.buffer,
+            } : (req.body?.attachment || null),
+        };
+
+        // 3. Backend Idempotency Check (prevents double-clicks & network retry duplicates)
+        const idemp = await checkAndReserveIdempotency(userId, clientRequestId, requestPayload);
+        if (!idemp.shouldProceed) {
+            if (idemp.status === "payload_mismatch") {
+                const errPayload = {
+                    message: idemp.error,
+                    error: "Unprocessable Entity",
+                    status: 422,
+                };
+                if (isSse) {
+                    sendEvent("error", errPayload);
+                    return res.end();
+                }
+                return res.status(422).json(errPayload);
+            }
+
+            if (idemp.status === "completed" && idemp.cachedResult) {
+                // Return cached result reference
+                const cachedPayload = {
+                    ...idemp.cachedResult,
+                    isIdempotentReplay: true,
+                };
+                if (isSse) {
+                    sendEvent("ready", cachedPayload);
+                    sendEvent("done", { status: "complete", traceId: trace.traceId, isIdempotentReplay: true });
+                    return res.end();
+                }
+                return res.status(200).json(cachedPayload);
+            }
+
+            // Already running
+            const errPayload = {
+                message: "An identical request is currently actively processing. Please wait for completion.",
+                error: "Conflict",
+                status: 409,
+            };
+            if (isSse) {
+                sendEvent("error", errPayload);
+                return res.end();
+            }
+            return res.status(409).json(errPayload);
+        }
+
+        // 4. Server-Side Daily AI Usage Quota Check (UTC midnight reset)
+        const quota = await checkAndConsumeDailyQuota(userId, DAILY_AI_TURNS_LIMIT);
+        if (!quota.allowed) {
+            res.setHeader("Retry-After", quota.retryAfterSec);
+            const errPayload = {
+                message: `Daily AI generation quota reached (${DAILY_AI_TURNS_LIMIT} prompts/day). Quota resets at midnight UTC.`,
+                error: "Daily Quota Exceeded",
+                status: 429,
+                retryAfter: quota.retryAfterSec,
+                dailyLimit: DAILY_AI_TURNS_LIMIT,
+            };
+            if (isSse) {
+                sendEvent("error", errPayload);
+                return res.end();
+            }
+            return res.status(429).json(errPayload);
+        }
+        quotaConsumed = true;
+
+        // 5. Distributed User Concurrency Lease Check (Max 1 active generation per user with 120s safety TTL)
+        const lease = await acquireConcurrencyLease(userId, trace.traceId, 120_000);
+        if (!lease.acquired) {
+            // Roll back the consumed quota turn since we are rejecting
+            await rollbackDailyQuota(userId);
+            quotaConsumed = false;
+
+            res.setHeader("Retry-After", lease.remainingSec);
+            const errPayload = {
+                message: "You already have an active generation in progress. Please wait for it to complete.",
+                error: "Concurrency Limit Exceeded",
+                status: 429,
+                retryAfter: lease.remainingSec,
+            };
+            if (isSse) {
+                sendEvent("error", errPayload);
+                return res.end();
+            }
+            return res.status(429).json(errPayload);
+        }
+        leaseAcquired = true;
+
+        // Auto-renew lease every 30s during long-running generations (e.g. Coding Agent)
+        leaseHeartbeatTimer = setInterval(async () => {
+            if (isClientDisconnected || !leaseAcquired) {
+                if (leaseHeartbeatTimer) {
+                    clearInterval(leaseHeartbeatTimer);
+                    leaseHeartbeatTimer = null;
+                }
+                return;
+            }
+            const renewed = await renewConcurrencyLease(userId, trace.traceId, 60_000);
+            if (!renewed) {
+                console.warn(`[Agent] Concurrency lease lost for user ${userId}, request ${trace.traceId}`);
+                leaseAcquired = false;
+                if (leaseHeartbeatTimer) {
+                    clearInterval(leaseHeartbeatTimer);
+                    leaseHeartbeatTimer = null;
+                }
+            }
+        }, 30_000);
 
         sendEvent("stage", { stage: "initializing", message: "Connecting to agent...", traceId: trace.traceId });
 
-        const promptText = prompt.trim();
+        const attachment = req.file;
+        const isPdf = Boolean(
+            attachment &&
+            (attachment.mimetype === "application/pdf" || attachment.originalname?.toLowerCase().endsWith(".pdf"))
+        );
+        const isImage = ["image/jpeg", "image/png", "image/webp"].includes(attachment?.mimetype);
+
         const historyPrompt = attachment
             ? `${promptText}\n[Attached file: ${attachment.originalname}]`
             : promptText;
@@ -173,7 +296,7 @@ export const agent = async (req, res) => {
                 if (stage === "parsing") trace.mark("parseStart");
                 sendEvent("stage", { stage, message });
             },
-            isAborted: () => isClientDisconnected,
+            isAborted: () => isClientDisconnected || !leaseAcquired,
         });
         trace.mark("llmEnd");
         if (trace.marks.parseStart) trace.mark("parseEnd");
@@ -234,6 +357,16 @@ export const agent = async (req, res) => {
             telemetry: telemetryData,
         };
 
+        hasCompletedSuccessfully = true;
+
+        // Mark Idempotency as completed with response replay metadata
+        await markIdempotencyCompleted(userId, clientRequestId, requestPayload, {
+            userMessageId: savedMessages[0]._id,
+            assistantMessageId: savedMessages[1]._id,
+            aiResponse: result.aiResponse,
+            artifacts: result.artifacts ?? [],
+        });
+
         if (isSse) {
             sendEvent("ready", finalPayload);
             sendEvent("done", { status: "complete", traceId: trace.traceId });
@@ -263,6 +396,25 @@ export const agent = async (req, res) => {
 
         return res.status(500).json(errorPayload);
     } finally {
+        // 1. Clear lease renewal heartbeat timer
+        if (leaseHeartbeatTimer) {
+            clearInterval(leaseHeartbeatTimer);
+            leaseHeartbeatTimer = null;
+        }
+        // 2. Safe Concurrency Release: only release lease if held by this request
+        if (leaseAcquired && userId) {
+            await releaseConcurrencyLease(userId, trace.traceId);
+        }
+        // 3. If request failed or client disconnected: clear reservation & rollback quota turn
+        if (!hasCompletedSuccessfully && userId) {
+            if (clientRequestId) {
+                await clearIdempotencyReservation(userId, clientRequestId);
+            }
+            if (quotaConsumed) {
+                await rollbackDailyQuota(userId);
+            }
+        }
+        // 4. Clear keepalive interval
         if (keepAliveTimer) {
             clearInterval(keepAliveTimer);
             keepAliveTimer = null;

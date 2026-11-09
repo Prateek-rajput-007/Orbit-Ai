@@ -60,9 +60,9 @@ test("Package declarations: agent declares ioredis and @langchain/langgraph", ()
 
 // 2. Verify Mongoose model registration and schema reference
 await testAsync("Mongoose Models: Conversation and Conversion aliases & indexes", async () => {
-  const mongoose = (await import("mongoose")).default;
-  const { default: Conversation } = await import("./models/conversion-model.js");
-  const { default: Message } = await import("./models/message-model.js");
+  const mongoose = (await import("../../services/chat/node_modules/mongoose/index.js").catch(() => import("mongoose"))).default;
+  const { default: Conversation } = await import("../../services/chat/models/conversion-model.js");
+  const { default: Message } = await import("../../services/chat/models/message-model.js");
 
   // Verify models are registered
   assert.ok(mongoose.models.Conversation, "Model 'Conversation' must be registered in Mongoose");
@@ -122,7 +122,7 @@ await testAsync("Chat Controller: guards against invalid user-id and conversatio
     getConversations,
     getMessages,
     updateConversation,
-  } = await import("./controllers/chat.controller.js");
+  } = await import("../../services/chat/controllers/chat.controller.js");
 
   const createMockRes = () => {
     const res = {

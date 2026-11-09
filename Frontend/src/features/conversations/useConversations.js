@@ -132,7 +132,10 @@ export function useConversations(user) {
             headers: {
               "Content-Type": "application/json",
               "Accept": "text/event-stream",
-              ...(clientRequestId ? { "x-request-id": clientRequestId } : {}),
+              ...(clientRequestId ? {
+                "x-request-id": clientRequestId,
+                "Idempotency-Key": clientRequestId,
+              } : {}),
             },
             credentials: "include",
             signal: abortController.signal,
@@ -141,7 +144,15 @@ export function useConversations(user) {
 
           if (!response.ok) {
             const errJson = await response.json().catch(() => null)
-            throw new Error(errJson?.message || errJson?.error || `Request failed with status ${response.status}`)
+            const retryAfter = response.headers.get("retry-after")
+            let errMsg = errJson?.message || errJson?.error || `Request failed with status ${response.status}`
+            if ((response.status === 429 || response.status === 503) && retryAfter && !errMsg.toLowerCase().includes("wait")) {
+              errMsg = `${errMsg} (Wait ${retryAfter}s)`
+            }
+            const err = new Error(errMsg)
+            err.status = response.status
+            err.retryAfter = retryAfter
+            throw err
           }
 
           const contentType = response.headers.get("content-type") || ""
@@ -223,7 +234,10 @@ export function useConversations(user) {
         const res = await api.post("/api/agent/chat", payload, {
           headers: {
             "Content-Type": "multipart/form-data",
-            ...(clientRequestId ? { "x-request-id": clientRequestId } : {}),
+            ...(clientRequestId ? {
+              "x-request-id": clientRequestId,
+              "Idempotency-Key": clientRequestId,
+            } : {}),
           },
           signal: abortController.signal,
         })

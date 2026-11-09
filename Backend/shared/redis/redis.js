@@ -1,12 +1,27 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import Redis from "ioredis";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function getRedisUrl() {
   if (!process.env.REDIS_URL) {
-    try {
-      if (typeof process.loadEnvFile === "function") {
-        process.loadEnvFile();
-      }
-    } catch {}
+    const candidatePaths = [
+      path.resolve(process.cwd(), ".env"),
+      path.resolve(process.cwd(), "Backend/gateway/.env"),
+      path.resolve(process.cwd(), "gateway/.env"),
+      path.resolve(__dirname, "../../gateway/.env"),
+      path.resolve(__dirname, "../../services/auth/.env"),
+    ];
+    for (const p of candidatePaths) {
+      try {
+        if (fs.existsSync(p) && typeof process.loadEnvFile === "function") {
+          process.loadEnvFile(p);
+          if (process.env.REDIS_URL) break;
+        }
+      } catch {}
+    }
   }
 
   let url = process.env.REDIS_URL || "redis://localhost:6379";
