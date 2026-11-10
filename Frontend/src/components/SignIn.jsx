@@ -203,33 +203,33 @@ function SignIn({ error, isSigningIn, onSignIn }) {
         )}
       </AnimatePresence>
 
-      <main className="relative z-10 mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-20">
+      <main className="relative z-10 mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8 lg:py-16">
         {/* =========================================================================
             1. HERO SECTION: Positioning, Value Proposition & Immediate Auth CTA
             ========================================================================= */}
-        <section className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-12 lg:gap-12 xl:gap-16">
+        <section className="relative mx-auto grid max-w-7xl items-center gap-8 sm:gap-10 min-[900px]:grid-cols-12 min-[900px]:gap-8 lg:gap-12 xl:gap-16">
           {/* Left Column: Positioning, Value Proposition & Google Sign-In */}
-          <div className="flex flex-col items-center text-center lg:col-span-6 lg:items-start lg:text-left justify-center max-w-xl">
+          <div className="flex flex-col items-center text-center min-[900px]:col-span-6 min-[900px]:items-start min-[900px]:text-left justify-center max-w-xl mx-auto min-[900px]:mx-0">
             {/* Eyebrow Pill */}
-            <div className="inline-flex items-center gap-2 rounded-full border border-accent-border/60 bg-accent-soft px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-accent backdrop-blur-md shadow-sm shadow-accent/10">
+            <div className="inline-flex items-center gap-2 rounded-full border border-accent-border/60 bg-accent-soft px-3.5 py-1.5 text-[10.5px] sm:text-[11px] font-semibold uppercase tracking-wider text-accent backdrop-blur-md shadow-sm shadow-accent/10">
               <span className="size-1.5 rounded-full bg-accent shadow-sm shadow-accent" />
               Autonomous Multi-Agent Workspace
             </div>
 
-            {/* Core Positioning Headline - Refined editorial scale */}
-            <h1 className="mt-5 font-display text-[2.35rem] font-semibold leading-[1.14] tracking-tight sm:text-4xl lg:text-[2.65rem] xl:text-[2.85rem] lg:leading-[1.12]">
+            {/* Core Positioning Headline - Responsive editorial scale */}
+            <h1 className="mt-4 sm:mt-5 font-display text-3xl font-semibold leading-[1.14] tracking-tight sm:text-4xl min-[900px]:text-[2.5rem] lg:text-[2.65rem] xl:text-[2.85rem] min-[900px]:leading-[1.12]">
               <span className="block text-ink">One workspace.</span>
               <span className="block font-normal text-ink/55">Multiple AI capabilities.</span>
               <span className="mt-1 block text-[#eabd58]">Built to create more.</span>
             </h1>
 
             {/* Subtitle */}
-            <p className="mt-4 max-w-[440px] text-sm leading-relaxed text-muted sm:text-[14.5px] sm:leading-[1.6]">
+            <p className="mt-3.5 sm:mt-4 max-w-[440px] text-xs sm:text-sm leading-relaxed text-muted sm:leading-[1.6]">
               Everything you need to explore ideas, build projects, and get things done in one place.
             </p>
 
             {/* Capability Pills (Compact, well-spaced within left column + 10s Progress Bar) */}
-            <div className="mt-6 flex flex-wrap items-center justify-center lg:justify-start gap-2 max-w-[430px]">
+            <div className="mt-5 sm:mt-6 flex flex-wrap items-center justify-center min-[900px]:justify-start gap-2 max-w-[430px]">
               {[
                 { id: "coding", icon: Code2, label: "Coding" },
                 { id: "search", icon: Search, label: "Research" },
@@ -270,8 +270,8 @@ function SignIn({ error, isSigningIn, onSignIn }) {
             </div>
 
             {/* Primary Authentication Action Area */}
-            <div className="mt-7 flex w-full max-w-md flex-col items-center lg:items-start gap-3">
-              <div className="w-full max-w-[340px] sm:max-w-[360px]">
+            <div className="mt-6 sm:mt-7 flex w-full max-w-md flex-col items-center min-[900px]:items-start gap-3">
+              <div className="w-full max-w-[320px] sm:max-w-[360px]">
                 <AnimatePresence>
                   {error && (
                     <motion.div
@@ -294,7 +294,7 @@ function SignIn({ error, isSigningIn, onSignIn }) {
           </div>
 
           {/* Right Column: 3D Product Showcase Tablet (Interactive Multi-Experience Mode) */}
-          <div className="relative mx-auto w-full max-w-lg lg:col-span-6 lg:max-w-none flex flex-col items-center justify-center lg:items-end">
+          <div className="relative mx-auto w-full max-w-xl sm:max-w-2xl min-[900px]:col-span-6 min-[900px]:max-w-none flex flex-col items-center justify-center min-[900px]:items-end">
             {/* Ambient Warm Golden Haze in background */}
             <div className="absolute -inset-10 -z-10 rounded-full bg-amber-500/15 blur-[130px]" />
             <div className="absolute -right-8 top-1/4 -z-10 h-72 w-72 rounded-full bg-amber-600/10 blur-[100px]" />
@@ -303,23 +303,22 @@ function SignIn({ error, isSigningIn, onSignIn }) {
             <div
               onMouseEnter={() => setIsHeroHovered(true)}
               onMouseLeave={() => setIsHeroHovered(false)}
-              className="relative w-full max-w-[490px] py-6 sm:py-10 [perspective:1400px]"
+              className="relative w-full max-w-[440px] sm:max-w-[500px] min-[900px]:max-w-[460px] lg:max-w-[500px] xl:max-w-[520px] py-3 sm:py-6 min-[900px]:py-8 [perspective:1400px]"
             >
               {/* Realistic Tablet Hardware Shell */}
               <div
-                className="relative z-10 overflow-hidden rounded-[2.4rem] border border-amber-500/30 bg-gradient-to-b from-[#22242e] via-[#12131a] to-[#090a0f] p-[8px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.95),0_10px_40px_rgba(234,189,88,0.12)] transition-all duration-500 ease-out hover:[transform:rotateY(-3deg)_rotateX(2deg)_translateY(-6px)] hover:shadow-[0_30px_70px_-10px_rgba(0,0,0,0.98),0_15px_50px_rgba(234,189,88,0.2)]"
+                className="relative z-10 overflow-hidden rounded-[1.8rem] sm:rounded-[2.4rem] border border-amber-500/30 bg-gradient-to-b from-[#22242e] via-[#12131a] to-[#090a0f] p-[6px] sm:p-[8px] shadow-[0_20px_50px_-15px_rgba(0,0,0,0.9),0_10px_35px_rgba(234,189,88,0.1)] sm:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.95),0_10px_40px_rgba(234,189,88,0.12)] transition-all duration-500 ease-out [transform:none] sm:[transform:rotateY(-6deg)_rotateX(3deg)] hover:sm:[transform:rotateY(-2deg)_rotateX(2deg)_translateY(-6px)] hover:shadow-[0_30px_70px_-10px_rgba(0,0,0,0.98),0_15px_50px_rgba(234,189,88,0.2)]"
                 style={{
-                  transform: "rotateY(-7deg) rotateX(4deg)",
                   transformStyle: "preserve-3d",
                 }}
               >
                 {/* Specular Metallic Bezel Highlight */}
-                <div className="absolute inset-0 pointer-events-none rounded-[2.4rem] ring-1 ring-inset ring-white/[0.12]" />
+                <div className="absolute inset-0 pointer-events-none rounded-[1.8rem] sm:rounded-[2.4rem] ring-1 ring-inset ring-white/[0.12]" />
 
                 {/* Inner Screen Surface */}
-                <div className="relative overflow-hidden rounded-[1.9rem] bg-[#07080c] text-white">
+                <div className="relative overflow-hidden rounded-[1.4rem] sm:rounded-[1.9rem] bg-[#07080c] text-white">
                   {/* Top Bar with Orbit Logo + Live Workspace Indicator */}
-                  <div className="flex items-center justify-between border-b border-white/[0.06] bg-[#0c0d12] px-5 py-3.5">
+                  <div className="flex items-center justify-between border-b border-white/[0.06] bg-[#0c0d12] px-3.5 sm:px-5 py-2.5 sm:py-3.5">
                     <div className="flex items-center gap-2.5">
                       <div className="grid size-6 place-items-center rounded-lg border border-amber-400/30 bg-amber-400/10 text-accent">
                         <Orbit size={13} strokeWidth={2.5} />
@@ -332,7 +331,7 @@ function SignIn({ error, isSigningIn, onSignIn }) {
                         <span className="capitalize text-accent font-medium">{heroTabId}</span>
                         <span>mode</span>
                       </div>
-                      <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-[9px] font-semibold text-emerald-400 tracking-wider">
+                      <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 sm:px-2.5 py-0.5 text-[8.5px] sm:text-[9px] font-semibold text-emerald-400 tracking-wider">
                         <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
                         LIVE WORKSPACE
                       </div>
@@ -340,9 +339,9 @@ function SignIn({ error, isSigningIn, onSignIn }) {
                   </div>
 
                   {/* Tablet Body: Left Clickable Icon Rail + Dynamic Multi-Experience Canvas */}
-                  <div className="flex min-h-[350px]">
+                  <div className="flex min-h-[300px] sm:min-h-[350px]">
                     {/* Minimalist Interactive Icon Sidebar */}
-                    <div className="flex flex-col items-center gap-3.5 border-r border-white/[0.06] bg-[#06070a] px-3.5 py-4">
+                    <div className="flex flex-col items-center gap-3 sm:gap-3.5 border-r border-white/[0.06] bg-[#06070a] px-2.5 sm:px-3.5 py-3 sm:py-4">
                       {[
                         { id: "home", icon: Home, label: "Home / Overview" },
                         { id: "coding", icon: MessageSquare, label: "Code & Build" },
@@ -359,52 +358,55 @@ function SignIn({ error, isSigningIn, onSignIn }) {
                             onClick={() => handleHeroSelect(id === "home" ? "coding" : id)}
                             title={label}
                             aria-label={label}
-                            className={`grid size-7 place-items-center rounded-lg transition-all duration-200 cursor-pointer ${
+                            className={`grid size-6 sm:size-7 place-items-center rounded-lg transition-all duration-200 cursor-pointer ${
                               isTabActive
                                 ? "border border-amber-400/50 bg-amber-400/20 text-accent shadow-sm shadow-amber-400/30 ring-1 ring-amber-400/40"
                                 : "text-white/30 hover:text-white/70 hover:bg-white/5"
                             }`}
                           >
-                            <Icon size={13} />
+                            <Icon size={12} className="sm:hidden" />
+                            <Icon size={13} className="hidden sm:block" />
                           </button>
                         )
                       })}
                     </div>
 
                     {/* Dynamic Main Showcase Canvas with Live Typing & Cascading AI Reveal */}
-                    <div className="flex flex-1 flex-col justify-between p-4 sm:p-5 gap-3.5">
+                    <div className="flex flex-1 flex-col justify-between p-3.5 sm:p-5 gap-3 sm:gap-3.5">
                       {(() => {
                         const currentScreen = HERO_SCREENS[heroTabId] || HERO_SCREENS.coding
                         return (
-                          <div className="flex flex-1 flex-col justify-between gap-3.5">
+                          <div className="flex flex-1 flex-col justify-between gap-3 sm:gap-3.5">
                             {/* Top: User Prompt Bubble with Live Typing Cursor */}
-                            <div className="flex items-center justify-end gap-2.5 min-h-[32px]">
-                              <div className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-1.5 text-[11px] text-white/90 shadow-sm font-medium line-clamp-1 max-w-[85%] flex items-center">
+                            <div className="flex items-center justify-end gap-2.5 min-h-[30px] sm:min-h-[32px]">
+                              <div className="rounded-full border border-white/10 bg-white/[0.05] px-3 sm:px-4 py-1 sm:py-1.5 text-[10.5px] sm:text-[11px] text-white/90 shadow-sm font-medium line-clamp-1 max-w-[85%] flex items-center">
                                 <span>{typedPrompt || "\u00A0"}</span>
                                 {tabletPhase === "typing" && (
                                   <span className="ml-1 inline-block h-3 w-1 rounded-sm bg-amber-400 animate-pulse" />
                                 )}
                               </div>
-                              <div className="grid size-6 shrink-0 place-items-center rounded-full border border-amber-400/40 bg-amber-400/20 text-[10px] font-bold text-[#eabd58]">
+                              <div className="grid size-5 sm:size-6 shrink-0 place-items-center rounded-full border border-amber-400/40 bg-amber-400/20 text-[9.5px] sm:text-[10px] font-bold text-[#eabd58]">
                                 U
                               </div>
                             </div>
 
                             {/* Middle: AI Response Indicator with 3-Phase State */}
-                            <div className="flex items-center gap-2 pt-0.5 text-[11px] min-h-[24px]">
+                            <div className="flex items-center gap-2 pt-0.5 text-[10.5px] sm:text-[11px] min-h-[22px] sm:min-h-[24px]">
                               {tabletPhase === "typing" ? (
                                 <div className="flex items-center gap-2 text-white/40">
-                                  <div className="grid size-5 shrink-0 place-items-center rounded-full border border-white/10 bg-white/5 text-white/30">
-                                    <Orbit size={11} />
+                                  <div className="grid size-4 sm:size-5 shrink-0 place-items-center rounded-full border border-white/10 bg-white/5 text-white/30">
+                                    <Orbit size={10} className="sm:hidden" />
+                                    <Orbit size={11} className="hidden sm:block" />
                                   </div>
-                                  <span className="font-mono text-[10px] text-white/40">Listening for user prompt...</span>
+                                  <span className="font-mono text-[9.5px] sm:text-[10px] text-white/40">Listening for user prompt...</span>
                                 </div>
                               ) : tabletPhase === "thinking" ? (
                                 <div className="flex items-center gap-2 text-amber-300">
-                                  <div className="grid size-5 shrink-0 place-items-center rounded-full border border-amber-400/40 bg-amber-400/20 text-accent shadow-sm shadow-amber-400/30">
-                                    <Sparkles size={11} className="animate-spin" style={{ animationDuration: "2s" }} />
+                                  <div className="grid size-4 sm:size-5 shrink-0 place-items-center rounded-full border border-amber-400/40 bg-amber-400/20 text-accent shadow-sm shadow-amber-400/30">
+                                    <Sparkles size={10} className="sm:hidden animate-spin" style={{ animationDuration: "2s" }} />
+                                    <Sparkles size={11} className="hidden sm:block animate-spin" style={{ animationDuration: "2s" }} />
                                   </div>
-                                  <span className="font-mono text-[10.5px] text-amber-300 flex items-center gap-1.5">
+                                  <span className="font-mono text-[10px] sm:text-[10.5px] text-amber-300 flex items-center gap-1.5">
                                     <span>Routing to {currentScreen.label} Agent</span>
                                     <span className="inline-flex gap-0.5">
                                       <span className="size-1 rounded-full bg-amber-400 animate-bounce" style={{ animationDelay: "0ms" }} />
@@ -420,8 +422,9 @@ function SignIn({ error, isSigningIn, onSignIn }) {
                                   transition={{ duration: 0.2 }}
                                   className="flex items-center gap-2 text-white/70"
                                 >
-                                  <div className="grid size-5 shrink-0 place-items-center rounded-full border border-amber-400/30 bg-amber-400/15 text-accent shadow-sm shadow-amber-400/20">
-                                    <Orbit size={11} />
+                                  <div className="grid size-4 sm:size-5 shrink-0 place-items-center rounded-full border border-amber-400/30 bg-amber-400/15 text-accent shadow-sm shadow-amber-400/20">
+                                    <Orbit size={10} className="sm:hidden" />
+                                    <Orbit size={11} className="hidden sm:block" />
                                   </div>
                                   <span className="font-medium text-white/85 line-clamp-1">
                                     {currentScreen.assistantLabel}
@@ -439,7 +442,7 @@ function SignIn({ error, isSigningIn, onSignIn }) {
                                   animate={{ opacity: 1, y: 0, scale: 1 }}
                                   exit={reduceMotion ? false : { opacity: 0, y: -6 }}
                                   transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                                  className="rounded-2xl border border-white/[0.09] bg-[#0c0d12]/95 p-4 shadow-xl flex flex-col justify-between min-h-[160px]"
+                                  className="rounded-xl sm:rounded-2xl border border-white/[0.09] bg-[#0c0d12]/95 p-3.5 sm:p-4 shadow-xl flex flex-col justify-between min-h-[150px] sm:min-h-[160px]"
                                 >
                                   {/* Artifact Card Header */}
                                   <div className="flex items-center justify-between pb-2.5 border-b border-white/[0.05]">
@@ -637,7 +640,7 @@ function SignIn({ error, isSigningIn, onSignIn }) {
         </section>
 
         {/* Subtle Horizontal Divider Bridge */}
-        <div className="my-10 sm:my-14 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" aria-hidden="true" />
+        <div className="my-8 sm:my-12 min-[900px]:my-14 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" aria-hidden="true" />
 
         {/* =========================================================================
             2. INTERACTIVE 5-SECOND SHOWCASE: Experience the Agents in Action
@@ -995,7 +998,7 @@ function SignIn({ error, isSigningIn, onSignIn }) {
         </section>
 
         {/* Subtle Horizontal Divider Bridge */}
-        <div className="my-10 sm:my-14 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" aria-hidden="true" />
+        <div className="my-8 sm:my-12 min-[900px]:my-14 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" aria-hidden="true" />
 
         {/* =========================================================================
             3. HOW ORBIT WORKS: The 3-Step Orchestration Journey
@@ -1062,7 +1065,7 @@ function SignIn({ error, isSigningIn, onSignIn }) {
         </section>
 
         {/* Subtle Horizontal Divider Bridge */}
-        <div className="my-10 sm:my-14 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" aria-hidden="true" />
+        <div className="my-8 sm:my-12 min-[900px]:my-14 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" aria-hidden="true" />
 
         {/* =========================================================================
             4. CAPABILITY PILLARS GRID: Confirmed Real Capabilities
@@ -1115,7 +1118,7 @@ function SignIn({ error, isSigningIn, onSignIn }) {
         </section>
 
         {/* Subtle Horizontal Divider Bridge */}
-        <div className="my-10 sm:my-14 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" aria-hidden="true" />
+        <div className="my-8 sm:my-12 min-[900px]:my-14 h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" aria-hidden="true" />
 
         {/* =========================================================================
             5. FINAL CALL TO ACTION: High-Impact Sign-In Card
