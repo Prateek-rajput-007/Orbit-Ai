@@ -48,33 +48,54 @@ export const router = async (state) => {
         return { ...state, agent: "vision" };
     }
 
+    // 2.7 Explicit routing for pure general coding/conceptual questions (e.g. "explain React hooks")
+    if (state.projectIntent?.intent === "GENERAL_CODING_QUESTION") {
+        return { ...state, agent: "chat" };
+    }
+
     // 3. Autonomous routing via router LLM
     onStage?.("routing", "Analyzing request to select specialized agent...");
     let selected = "chat";
     try {
         const llm = getModel("router");
+        const hasExistingProject =
+            state?.existingCodeArtifact &&
+            Array.isArray(state.existingCodeArtifact.files) &&
+            state.existingCodeArtifact.files.length > 0;
+
+        let projectContext = "No active code project in conversation";
+        if (state.projectIntent?.intent === "CREATE_NEW_PROJECT") {
+            projectContext = "Fresh Project Request: User requested building a brand new application from scratch.";
+        } else if (hasExistingProject) {
+            projectContext = `Active Project in Conversation: "${state.existingCodeArtifact.title || "Web Application"}" (files: ${(state.existingCodeArtifact.files || []).map((f) => f.path).join(", ")})`;
+        }
+
         const prompt = `You are an agent router.
 
 Available agents:
 - chat: general conversation, writing, explanations, brainstorming, and day-to-day questions
 - search: live web search, fact-checking, current events, and external research
-- coding: software engineering, debugging, code generation, refactoring, and project work
+- coding: software engineering, debugging, code generation, refactoring, and modifying/updating projects
 - ppt: creating or editing slides, presentations, and deck content
 - pdf: creating, generating, or analyzing PDF documents, cheat sheets, guides, and reports
 - vision: analyzing attached images, or creating/generating new images, drawings, and illustrations
 
 Rules:
 1. If the user asks for coding, debugging, fixing code, architecture, or project implementation, choose coding.
-2. If the user asks for fresh facts, live web results, or research from external sources, choose search.
-3. If the user wants a slide deck or presentation created or edited, choose ppt.
-4. If the user wants a PDF document, cheat sheet, guide, or report created, choose pdf.
-5. If the user wants an image, photo, drawing, or illustration created or generated, choose vision.
-6. If the user asks general questions without specifying a document or code, choose chat.
-7. If there is no clear match, default to chat.
+2. If there is an active project in the conversation and the user asks to modify, style, update, fix, or add features to it (e.g. "add dark mode", "filter items", "change button color"), choose coding.
+3. If the user asks for fresh facts, live web results, or research from external sources, choose search.
+4. If the user wants a slide deck or presentation created or edited, choose ppt.
+5. If the user wants a PDF document, cheat sheet, guide, or report created, choose pdf.
+6. If the user wants an image, photo, drawing, or illustration created or generated, choose vision.
+7. If the user asks general questions without specifying a document or code, choose chat.
+8. If there is no clear match, default to chat.
 
 Output format:
 Return only one agent name with no extra words, punctuation, or explanation:
 chat, search, coding, ppt, pdf, vision
+
+Conversation Project Status:
+${projectContext}
 
 User request:
 ${state?.prompt ?? ""}

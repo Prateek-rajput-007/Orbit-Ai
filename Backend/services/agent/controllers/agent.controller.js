@@ -3,6 +3,7 @@ import { getMemory } from "../config/memory.js";
 import { saveTurn, updateArtifactDeployment } from "../utils/getMessages.js";
 import { deployArtifactProject } from "../utils/deployment/deploymentManager.js";
 import { createTrace } from "../utils/telemetry.js";
+import { classifyProjectIntent, PROJECT_INTENTS } from "../utils/projectIntent.js";
 import {
     acquireConcurrencyLease,
     renewConcurrencyLease,
@@ -275,12 +276,38 @@ export const agent = async (req, res) => {
 
         if (isClientDisconnected) return;
 
+        // Find the latest existing coding artifact in this conversation (if any)
+        let existingCodeArtifact = null;
+        if (Array.isArray(history)) {
+            for (let i = history.length - 1; i >= 0; i--) {
+                const msg = history[i];
+                if (
+                    msg &&
+                    msg.role === "assistant" &&
+                    msg.codeArtifact &&
+                    Array.isArray(msg.codeArtifact.files) &&
+                    msg.codeArtifact.files.length > 0
+                ) {
+                    existingCodeArtifact = msg.codeArtifact;
+                    break;
+                }
+            }
+        }
+
+        // Classify project intent (modify, create new, general question, ambiguous)
+        const projectIntent = classifyProjectIntent(promptText, existingCodeArtifact, history);
+        const effectiveExistingArtifact = projectIntent.shouldUseExistingArtifact
+            ? existingCodeArtifact
+            : (projectIntent.intent === PROJECT_INTENTS.AMBIGUOUS_INTENT ? existingCodeArtifact : null);
+
         trace.mark("llmStart");
         const result = await graph.invoke({
             prompt: promptText,
             conversationId,
             history: history.map(({ role, content }) => ({ role, content })),
             agentMode,
+            existingCodeArtifact: effectiveExistingArtifact,
+            projectIntent,
             attachment: attachment ? {
                 name: attachment.originalname,
                 mimeType: isPdf ? "application/pdf" : attachment.mimetype,

@@ -2,6 +2,7 @@ import { getModel } from "../config/llmModels.js";
 import { formatConversationContext } from "../utils/conversationContext.js";
 import { extractText } from "../utils/extractText.js";
 import { parseCodeArtifact } from "../utils/codeArtifact.js";
+import { classifyProjectIntent, PROJECT_INTENTS } from "../utils/projectIntent.js";
 
 export const codingAgent = async (state = {}) => {
     if (state?.isAborted?.()) {
@@ -17,7 +18,90 @@ export const codingAgent = async (state = {}) => {
     const onToken = typeof state?.onToken === "function" ? state.onToken : null;
     const onStage = typeof state?.onStage === "function" ? state.onStage : null;
 
-    const systemPrompt = `You are Orbit's Senior Staff Software Engineer and Coding Architect.
+    // Classify project intent: MODIFY_EXISTING_PROJECT, CREATE_NEW_PROJECT, GENERAL_CODING_QUESTION, AMBIGUOUS_INTENT
+    const projectIntent = state?.projectIntent || classifyProjectIntent(userPrompt, state?.existingCodeArtifact, state?.history);
+
+    // 1. Guard against ambiguous intent: ask for clarification without destroying or modifying project state
+    if (projectIntent.intent === PROJECT_INTENTS.AMBIGUOUS_INTENT) {
+        const clarification = projectIntent.clarificationPrompt ||
+            `Would you like to update your existing project (${state?.existingCodeArtifact?.title || "current project"}), or create a brand new application from scratch? Please clarify so I can assist you accurately.`;
+        return {
+            ...state,
+            aiResponse: clarification,
+            codeArtifact: null,
+            modelUsed: "orbit-intent-guard",
+            providerUsed: "orbit-internal",
+        };
+    }
+
+    // 2. Pure technical / conceptual questions: answer directly without creating or modifying a project artifact
+    if (projectIntent.intent === PROJECT_INTENTS.GENERAL_CODING_QUESTION) {
+        onStage?.("generating", "Formulating technical explanation...");
+        const questionSystemPrompt = `You are Orbit's Senior Staff Software Engineer and Coding Architect.
+The user is asking a technical, conceptual, or architectural question.
+Provide a clear, concise, accurate explanation with code examples as appropriate.
+Do NOT output a project JSON code artifact or file manifest. Output markdown directly.`;
+
+        let answer = "";
+        try {
+            const result = await llm.invoke([
+                { role: "system", content: questionSystemPrompt },
+                { role: "user", content: `${conversationContext ? `Recent conversation context:\n${conversationContext}\n\n` : ""}Question:\n${userPrompt}` },
+            ]);
+            answer = extractText(result);
+        } catch (err) {
+            console.error("General coding question invoke failed:", err.message);
+            answer = "I could not process your technical question at this moment. Please try again.";
+        }
+
+        return {
+            ...state,
+            aiResponse: answer,
+            codeArtifact: null,
+            modelUsed: llm.model,
+            providerUsed: llm.provider || "groq",
+            tokenUsage: { estimatedOutputTokens: Math.round(answer.length / 4) },
+            retries: 0,
+        };
+    }
+
+    // 3. For CREATE_NEW_PROJECT, isolate context completely: do not pass existing files or baseArtifactId
+    const isNewProject = projectIntent.intent === PROJECT_INTENTS.CREATE_NEW_PROJECT;
+    const existing = isNewProject ? null : state.existingCodeArtifact;
+    const hasExisting = Boolean(
+        existing &&
+        Array.isArray(existing.files) &&
+        existing.files.length > 0 &&
+        !isNewProject
+    );
+
+    // Limit existing file context size to prevent exceeding LLM context windows
+    const MAX_CONTEXT_FILE_BYTES = 75_000;
+    const includedFiles = [];
+    const omittedFiles = [];
+
+    if (hasExisting) {
+        // Prioritize entry file and key documents first
+        const sortedFiles = [...existing.files].sort((a, b) => {
+            const aIsEntry = a.path === existing.entryFile ? -1 : 0;
+            const bIsEntry = b.path === existing.entryFile ? -1 : 0;
+            if (aIsEntry !== bIsEntry) return aIsEntry - bIsEntry;
+            return (a.size || 0) - (b.size || 0);
+        });
+
+        let accumulatedBytes = 0;
+        for (const file of sortedFiles) {
+            const fileBytes = Buffer.byteLength(file.content || "", "utf8");
+            if (accumulatedBytes + fileBytes <= MAX_CONTEXT_FILE_BYTES) {
+                includedFiles.push(file);
+                accumulatedBytes += fileBytes;
+            } else {
+                omittedFiles.push(file);
+            }
+        }
+    }
+
+    const newProjectSystemPrompt = `You are Orbit's Senior Staff Software Engineer and Coding Architect.
 Your mission is to write complete, reliable, production-ready, beautiful code projects.
 
 CRITICAL ARCHITECTURE & EXECUTION RULES:
@@ -64,23 +148,102 @@ CRITICAL ARCHITECTURE & EXECUTION RULES:
    \`\`\`
    Do NOT omit the JSON code block. Output strictly valid JSON.`;
 
-    const userMessage = `${conversationContext ? `Recent conversation context:\n${conversationContext}\n\n` : ""}User request:
+    const incrementalSystemPrompt = `You are Orbit's Senior Staff Software Engineer and Coding Architect modifying an existing code project.
+The user wants to update, add features, refactor, or style the existing project.
+
+CRITICAL INCREMENTAL UPDATE RULES:
+1. DO NOT recreate unchanged files. ONLY emit operations for files that are created, updated, or deleted.
+2. For any file you create or update, provide the COMPLETE, WORKING code. Never use placeholders (e.g. "// TODO", "// rest of your code here", "..."), truncated snippets, or diff notation.
+3. Operations contract:
+   - "update": Replaces the entire content of an existing file.
+   - "create": Adds a new file to the project.
+   - "delete": Removes an existing file from the project.
+4. BROWSER SANDBOX EXECUTION ENVIRONMENT:
+   - Web applications execute directly in an in-browser sandbox iframe.
+   - Do NOT use Node.js require() or unresolved bare npm imports.
+   - Use CDN scripts in HTML (e.g. https://cdn.tailwindcss.com, Lucide icons, Chart.js, etc.).
+   - Wrap JavaScript initialization in document.addEventListener("DOMContentLoaded", () => { ... }).
+   - Persist application data/state in localStorage.
+5. STRICT OUTPUT FORMAT:
+   Return ONLY a valid JSON object with this exact structure:
+   \`\`\`json
+   {
+     "title": "${existing?.title || "Project Title"}",
+     "description": "${existing?.description || "Project Description"}",
+     "summary": "Engineering summary: detailed explanation of the changes made, files updated/added/deleted, and how to test the new features.",
+     "operations": [
+       {
+         "type": "update",
+         "path": "path/to/existing-file.js",
+         "content": "// Complete updated file content..."
+       },
+       {
+         "type": "create",
+         "path": "path/to/new-component.js",
+         "content": "// Complete new file content..."
+       },
+       {
+         "type": "delete",
+         "path": "path/to/obsolete-file.js"
+       }
+     ]
+   }
+   \`\`\`
+   Do NOT omit the JSON code block. Output strictly valid JSON.`;
+
+    const systemPrompt = hasExisting ? incrementalSystemPrompt : newProjectSystemPrompt;
+
+    let userMessage = "";
+    if (hasExisting) {
+        const fileManifest = includedFiles
+            .map((f) => `### File: \`${f.path}\` (${f.language})\n\`\`\`${f.language}\n${f.content}\n\`\`\``)
+            .join("\n\n");
+
+        const omittedNotice = omittedFiles.length > 0
+            ? `\n\n> Notice: The following ${omittedFiles.length} file(s) were omitted from the prompt due to context size limits: ${omittedFiles.map((f) => `\`${f.path}\``).join(", ")}. Do NOT modify omitted files unless explicitly asked.`
+            : "";
+
+        userMessage = `${conversationContext ? `Recent conversation context:\n${conversationContext}\n\n` : ""}EXISTING PROJECT CONTEXT:
+Project Title: ${existing.title || "Web Application"}
+Entry File: ${existing.entryFile || "index.html"}
+Total Files: ${existing.files.length}
+
+CURRENT PROJECT FILES:
+${fileManifest}${omittedNotice}
+
+USER REQUEST:
 ${userPrompt}`;
+    } else {
+        userMessage = `${conversationContext ? `Recent conversation context:\n${conversationContext}\n\n` : ""}User request:
+${userPrompt}`;
+    }
 
     let rawText = "";
     let retries = 0;
 
-    onStage?.("analyzing", "Planning application architecture & multi-file structure...");
+    onStage?.(
+        "analyzing",
+        hasExisting
+            ? "Analyzing existing project structure and planning incremental changes..."
+            : "Planning application architecture & multi-file structure..."
+    );
 
     // Heartbeat: emit progress updates every 15 s so the frontend stage indicator stays alive
     // during long generations (PaisaPilot-scale apps can take 60–120 s to generate ~23K tokens).
-    const HEARTBEAT_MESSAGES = [
-        "Writing HTML structure and layout...",
-        "Building CSS styles and responsive design...",
-        "Generating JavaScript logic and interactions...",
-        "Finalising data models and UI components...",
-        "Completing application code...",
-    ];
+    const HEARTBEAT_MESSAGES = hasExisting
+        ? [
+            "Reviewing existing project files...",
+            "Applying incremental code updates...",
+            "Validating component updates and styling...",
+            "Finalising project structure...",
+        ]
+        : [
+            "Writing HTML structure and layout...",
+            "Building CSS styles and responsive design...",
+            "Generating JavaScript logic and interactions...",
+            "Finalising data models and UI components...",
+            "Completing application code...",
+        ];
     let heartbeatIdx = 0;
     let heartbeatTimer = null;
     const startHeartbeat = () => {
@@ -94,7 +257,12 @@ ${userPrompt}`;
     const stopHeartbeat = () => { if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; } };
 
     try {
-        onStage?.("generating", "Generating complete HTML, CSS, and JavaScript project files...");
+        onStage?.(
+            "generating",
+            hasExisting
+                ? "Applying incremental file updates and generating new components..."
+                : "Generating complete HTML, CSS, and JavaScript project files..."
+        );
         startHeartbeat();
         if (typeof llm.stream === "function") {
             const stream = await llm.stream([
@@ -156,8 +324,13 @@ ${userPrompt}`;
         );
     }
 
-    onStage?.("parsing", "Validating code files, applying security sandbox, and preparing live preview...");
-    const codeArtifact = parseCodeArtifact(rawText, userPrompt);
+    onStage?.(
+        "parsing",
+        hasExisting
+            ? "Validating updated files, applying security sandbox, and refreshing live preview..."
+            : "Validating code files, applying security sandbox, and preparing live preview..."
+    );
+    const codeArtifact = parseCodeArtifact(rawText, userPrompt, existing);
 
     // Build a comprehensive, helpful chat response for the user
     let aiResponse = "";
@@ -167,10 +340,20 @@ ${userPrompt}`;
             .join("\n");
 
         const previewNote = codeArtifact.previewType === "html"
-            ? "✨ **Live Sandbox Preview Ready**: Click **Preview** in the artifact card to interact with the live application in the side panel."
+            ? (hasExisting
+                ? "✨ **Live Preview Updated**: Click **Preview** in the artifact card to test your updated application."
+                : "✨ **Live Sandbox Preview Ready**: Click **Preview** in the artifact card to interact with the live application in the side panel.")
             : "📦 **Project Artifact Ready**: Inspect the source files below or click **Download ZIP**.";
 
-        aiResponse = `### ${codeArtifact.title}\n\n${codeArtifact.description}\n\n${previewNote}\n\n#### Generated Project Files\n${fileListMarkdown}`;
+        const headerTitle = hasExisting
+            ? `### ${codeArtifact.title} (Updated)`
+            : `### ${codeArtifact.title}`;
+
+        const filesSectionTitle = hasExisting
+            ? `#### Current Project Files (${codeArtifact.totalFiles} files)`
+            : "#### Generated Project Files";
+
+        aiResponse = `${headerTitle}\n\n${codeArtifact.description}\n\n${previewNote}\n\n${filesSectionTitle}\n${fileListMarkdown}`;
 
         // If the model had descriptive summary or advice, extract or append it
         if (codeArtifact.summary) {

@@ -1,5 +1,9 @@
 import crypto from "node:crypto";
 
+export const MAX_PROJECT_FILES = 50;
+export const MAX_PROJECT_TOTAL_SIZE = 5 * 1024 * 1024; // 5 MB
+export const MAX_SINGLE_FILE_SIZE = 2 * 1024 * 1024; // 2 MB
+
 /**
  * Sanitizes and normalizes file paths to prevent directory traversal and invalid paths.
  * Enforces safe relative paths inside the virtual project root.
@@ -514,6 +518,7 @@ export const normalizeCodeProject = (raw = {}, userPrompt = "") => {
 
     return {
         artifactId,
+        baseArtifactId: raw.baseArtifactId || null,
         title,
         description,
         summary: raw.summary || "",
@@ -532,6 +537,166 @@ export const normalizeCodeProject = (raw = {}, userPrompt = "") => {
             note: "Interactive sandbox preview is ready. Cloud hosting (Vercel/Netlify) can be configured via API token.",
         },
     };
+};
+
+/**
+ * Applies incremental file operations (create, update, delete) to an existing project artifact.
+ * Validates operation types, file paths, size limits, and ensures critical files remain protected.
+ *
+ * @param {object} existingArtifact
+ * @param {object} operationPayload
+ * @param {string} userPrompt
+ * @returns {object} Updated CodeArtifact
+ */
+export const applyFileOperations = (existingArtifact, operationPayload = {}, userPrompt = "") => {
+    if (!existingArtifact || !Array.isArray(existingArtifact.files)) {
+        if (operationPayload && (Array.isArray(operationPayload.files) || operationPayload.entryFile)) {
+            return normalizeCodeProject(operationPayload, userPrompt);
+        }
+        throw new Error("Cannot apply file operations: No existing artifact provided.");
+    }
+
+    // Backward compatibility: If the model emitted a full artifact with a "files" array instead of "operations"
+    if (Array.isArray(operationPayload?.files) && (!operationPayload?.operations || !Array.isArray(operationPayload.operations))) {
+        return normalizeCodeProject({
+            ...operationPayload,
+            baseArtifactId: existingArtifact.artifactId,
+        }, userPrompt);
+    }
+
+    const operations = operationPayload?.operations;
+    if (!Array.isArray(operations)) {
+        // If no operations array provided, return existing artifact preserving baseArtifactId
+        return normalizeCodeProject({
+            ...existingArtifact,
+            title: operationPayload?.title || existingArtifact.title,
+            description: operationPayload?.description || existingArtifact.description,
+            summary: operationPayload?.summary || existingArtifact.summary,
+            baseArtifactId: existingArtifact.artifactId,
+        }, userPrompt);
+    }
+
+    // Build map of existing files
+    const fileMap = new Map();
+    for (const f of existingArtifact.files) {
+        if (f && f.path) {
+            fileMap.set(f.path.toLowerCase(), {
+                path: f.path,
+                content: f.content ?? "",
+                language: f.language || detectLanguage(f.path),
+                size: f.size ?? Buffer.byteLength(f.content ?? "", "utf8"),
+            });
+        }
+    }
+
+    const seenOps = new Set();
+    const VALID_TYPES = new Set(["create", "update", "delete"]);
+
+    for (const op of operations) {
+        if (!op || typeof op !== "object") {
+            throw new Error("Invalid operation item: must be an object.");
+        }
+
+        const rawType = String(op.type || "").trim().toLowerCase();
+        if (!VALID_TYPES.has(rawType)) {
+            throw new Error(`Invalid operation type: "${op.type}". Supported types are "create", "update", "delete".`);
+        }
+
+        if (!op.path || typeof op.path !== "string" || !op.path.trim()) {
+            throw new Error("Invalid operation path: file path must be a non-empty string.");
+        }
+
+        const trimmedPath = op.path.trim();
+
+        // Security check: Prevent path traversal sequences (e.g. "../", "..\", "/..") or Windows drive letters
+        if (
+            trimmedPath.includes("..") ||
+            /^[a-zA-Z]:/.test(trimmedPath) ||
+            /^[/\\]/.test(trimmedPath)
+        ) {
+            throw new Error(`Invalid or unsafe file path: "${op.path}". Path traversal and absolute paths are prohibited.`);
+        }
+
+        const cleanPath = sanitizePath(trimmedPath);
+        if (!cleanPath) {
+            throw new Error(`Invalid file path after sanitization: "${op.path}".`);
+        }
+
+        const key = cleanPath.toLowerCase();
+
+        // Conflict check: Disallow multiple conflicting or duplicate operations on the same path in one turn
+        if (seenOps.has(key)) {
+            throw new Error(`Duplicate or conflicting operation for file path: "${cleanPath}".`);
+        }
+        seenOps.add(key);
+
+        if (rawType === "delete") {
+            // Guard critical project files:
+            // Do not delete index.html or the project entry file unless another HTML file exists
+            const entryKey = (existingArtifact.entryFile || "index.html").toLowerCase();
+            if (key === "index.html" || key === entryKey) {
+                const remainingHtml = Array.from(fileMap.values()).filter(
+                    (f) => f.path.toLowerCase() !== key && f.path.toLowerCase().endsWith(".html")
+                );
+                if (remainingHtml.length === 0) {
+                    throw new Error(`Cannot delete entry file "${cleanPath}" without an alternative HTML entry point in the project.`);
+                }
+            }
+            fileMap.delete(key);
+        } else {
+            // "create" or "update"
+            if (typeof op.content !== "string") {
+                throw new Error(`Operation "${rawType}" on file "${cleanPath}" requires string content.`);
+            }
+
+            const size = Buffer.byteLength(op.content, "utf8");
+            if (size > MAX_SINGLE_FILE_SIZE) {
+                throw new Error(`File "${cleanPath}" size (${(size / 1024 / 1024).toFixed(2)} MB) exceeds single file limit of ${(MAX_SINGLE_FILE_SIZE / 1024 / 1024)} MB.`);
+            }
+
+            const existingFile = fileMap.get(key);
+            const targetPath = existingFile ? existingFile.path : cleanPath;
+            const language = op.language || detectLanguage(targetPath);
+
+            fileMap.set(key, {
+                path: targetPath,
+                content: op.content,
+                language,
+                size,
+            });
+        }
+    }
+
+    const updatedFiles = Array.from(fileMap.values());
+
+    if (updatedFiles.length === 0) {
+        throw new Error("Project must contain at least one file after applying operations.");
+    }
+
+    if (updatedFiles.length > MAX_PROJECT_FILES) {
+        throw new Error(`Project file count (${updatedFiles.length}) exceeds maximum allowed limit of ${MAX_PROJECT_FILES} files.`);
+    }
+
+    const totalBytes = updatedFiles.reduce((acc, f) => acc + (f.size || 0), 0);
+    if (totalBytes > MAX_PROJECT_TOTAL_SIZE) {
+        throw new Error(`Project total size (${(totalBytes / 1024 / 1024).toFixed(2)} MB) exceeds maximum allowed limit of ${(MAX_PROJECT_TOTAL_SIZE / 1024 / 1024)} MB.`);
+    }
+
+    // Determine entry file: preserve existing entry file if it still exists, else find alternative
+    let resolvedEntry = operationPayload.entryFile || existingArtifact.entryFile || "index.html";
+    if (!fileMap.has(resolvedEntry.toLowerCase())) {
+        const firstHtml = updatedFiles.find((f) => f.path.toLowerCase().endsWith(".html"));
+        resolvedEntry = firstHtml ? firstHtml.path : updatedFiles[0].path;
+    }
+
+    return normalizeCodeProject({
+        title: operationPayload.title || existingArtifact.title,
+        description: operationPayload.description || existingArtifact.description,
+        summary: operationPayload.summary || "Applied incremental updates to project.",
+        entryFile: resolvedEntry,
+        files: updatedFiles,
+        baseArtifactId: existingArtifact.artifactId,
+    }, userPrompt);
 };
 
 export const defaultPathByLang = (lang = "") => {
@@ -873,25 +1038,52 @@ export function repairIncompleteJavascript(code = "") {
  * 2. Fenced JSON code block
  * 3. Outermost JSON object extraction
  * 4. Truncated / partial JSON auto-repair (preserves full multi-file projects upon token cutoff)
- * 5. Direct file object scanner from partial JSON
- * 6. Markdown file block extraction (### filename.js \n ```js)
- * 7. Single code block fallback
+ * 5. Incremental file operations application when existingArtifact is present
+ * 6. Direct file object scanner from partial JSON
+ * 7. Markdown file block extraction (### filename.js \n ```js)
+ * 8. Single code block fallback
  *
  * @param {string} text
  * @param {string} userPrompt
+ * @param {object|null} existingArtifact
  * @returns {object} Validated CodeArtifact
  */
-export const parseCodeArtifact = (text = "", userPrompt = "") => {
+export const parseCodeArtifact = (text = "", userPrompt = "", existingArtifact = null) => {
+    const hasExisting = Boolean(
+        existingArtifact &&
+        Array.isArray(existingArtifact.files) &&
+        existingArtifact.files.length > 0
+    );
+
     if (!text || typeof text !== "string") {
+        if (hasExisting) {
+            return normalizeCodeProject({ ...existingArtifact, baseArtifactId: existingArtifact.artifactId }, userPrompt);
+        }
         return normalizeCodeProject({}, userPrompt);
     }
+
+    const processCandidate = (parsed) => {
+        if (!parsed || typeof parsed !== "object") return null;
+        if (hasExisting) {
+            if (Array.isArray(parsed.operations) || Array.isArray(parsed.files)) {
+                return applyFileOperations(existingArtifact, parsed, userPrompt);
+            }
+            if (parsed.entryFile || parsed.title) {
+                return normalizeCodeProject({ ...existingArtifact, ...parsed, baseArtifactId: existingArtifact.artifactId }, userPrompt);
+            }
+        } else {
+            if (Array.isArray(parsed.files) || parsed.files || parsed.entryFile) {
+                return normalizeCodeProject(parsed, userPrompt);
+            }
+        }
+        return null;
+    };
 
     // 1. Direct JSON parse
     try {
         const parsed = JSON.parse(text.trim());
-        if (parsed && (Array.isArray(parsed.files) || parsed.files || parsed.entryFile)) {
-            return normalizeCodeProject(parsed, userPrompt);
-        }
+        const result = processCandidate(parsed);
+        if (result) return result;
     } catch (_) {}
 
     // 2. Fenced JSON code block
@@ -899,34 +1091,48 @@ export const parseCodeArtifact = (text = "", userPrompt = "") => {
     if (jsonMatch && jsonMatch[1]) {
         try {
             const parsed = JSON.parse(jsonMatch[1]);
-            if (parsed && (Array.isArray(parsed.files) || parsed.files || parsed.entryFile)) {
-                return normalizeCodeProject(parsed, userPrompt);
-            }
+            const result = processCandidate(parsed);
+            if (result) return result;
         } catch (_) {}
     }
 
-    // 3. Outermost JSON object with "files" key
+    // 3. Outermost JSON object with "files" or "operations" key
     const firstBrace = text.indexOf("{");
     const lastBrace = text.lastIndexOf("}");
     if (firstBrace !== -1 && lastBrace > firstBrace) {
         try {
             const candidate = text.slice(firstBrace, lastBrace + 1);
-            if (candidate.includes('"files"') || candidate.includes('"title"')) {
+            if (candidate.includes('"files"') || candidate.includes('"operations"') || candidate.includes('"title"')) {
                 const parsed = JSON.parse(candidate);
-                if (parsed && (Array.isArray(parsed.files) || parsed.files || parsed.entryFile)) {
-                    return normalizeCodeProject(parsed, userPrompt);
-                }
+                const result = processCandidate(parsed);
+                if (result) return result;
             }
         } catch (_) {}
     }
 
     // 4. Truncated or incomplete JSON auto-repair
     const repaired = repairTruncatedJson(text);
-    if (repaired && (Array.isArray(repaired.files) || repaired.files || repaired.entryFile)) {
-        return normalizeCodeProject(repaired, userPrompt);
+    if (repaired) {
+        try {
+            const result = processCandidate(repaired);
+            if (result) return result;
+        } catch (_) {}
     }
 
-    // 5. Raw file object scanner from partial JSON
+    // 5. If hasExisting, and failed to parse valid operations, safely preserve previous artifact
+    if (hasExisting) {
+        console.warn("Could not parse incremental operations from model response; preserving existing project artifact.");
+        return normalizeCodeProject(
+            {
+                ...existingArtifact,
+                summary: `Could not apply code updates. Existing project preserved.`,
+                baseArtifactId: existingArtifact.artifactId,
+            },
+            userPrompt
+        );
+    }
+
+    // 6. Raw file object scanner from partial JSON
     const extractedFiles = extractFilesFromRawJson(text);
     if (extractedFiles.length > 0) {
         return normalizeCodeProject(
@@ -939,13 +1145,13 @@ export const parseCodeArtifact = (text = "", userPrompt = "") => {
         );
     }
 
-    // 6. Markdown multi-file blocks (### filename \n ```lang)
+    // 7. Markdown multi-file blocks (### filename \n ```lang)
     const mdBlocks = parseMarkdownFileBlocks(text, userPrompt);
     if (mdBlocks && mdBlocks.files.length > 0) {
         return mdBlocks;
     }
 
-    // 7. Single standalone code block fallback
+    // 8. Single standalone code block fallback
     const singleCodeMatch = text.match(/```([a-zA-Z0-9_-]*)\s*([\s\S]*?)\s*```/);
     if (singleCodeMatch) {
         const lang = (singleCodeMatch[1] || "").toLowerCase();
@@ -968,6 +1174,6 @@ export const parseCodeArtifact = (text = "", userPrompt = "") => {
         );
     }
 
-    // 8. Generic fallback
+    // 9. Generic fallback
     return normalizeCodeProject({}, userPrompt);
 };

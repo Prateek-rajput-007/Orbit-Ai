@@ -16,6 +16,8 @@ export const agentState = Annotation.Root({
     imageAttachment: Annotation(),
     suggestedQuestions: Annotation(),
     codeArtifact: Annotation(),
+    existingCodeArtifact: Annotation(),
+    projectIntent: Annotation(),
     onToken: Annotation(),
     onStage: Annotation(),
     modelUsed: Annotation(),
