@@ -124,7 +124,7 @@ export default function CodeArtifactPanel({ artifact, conversationId, onClose })
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: "100%", opacity: 0 }}
       transition={{ type: "spring", damping: 28, stiffness: 240 }}
-      className="fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l border-white/10 bg-sidebar shadow-2xl backdrop-blur-xl sm:w-[540px] md:relative md:inset-auto md:w-[500px] lg:w-[600px] xl:w-[700px] shrink-0"
+      className="fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l border-white/10 bg-sidebar shadow-2xl backdrop-blur-xl sm:w-[520px] md:w-[560px] lg:w-[620px] xl:relative xl:inset-auto xl:w-[580px] 2xl:w-[680px] shrink-0"
       aria-label="Code Artifact Sandbox Panel"
     >
       {/* Top Header */}

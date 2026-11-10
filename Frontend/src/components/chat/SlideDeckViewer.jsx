@@ -98,7 +98,7 @@ export default function SlideDeckViewer({ slides = [], presentationFile = null }
       </div>
 
       {/* Main Slide Canvas */}
-      <div className="relative min-h-[280px] sm:min-h-[320px] p-6 sm:p-8 flex flex-col justify-between bg-black/50">
+      <div className="relative min-h-[260px] sm:min-h-[320px] p-4 sm:p-6 lg:p-8 flex flex-col justify-between bg-black/50">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentSlideIndex}
@@ -110,11 +110,11 @@ export default function SlideDeckViewer({ slides = [], presentationFile = null }
           >
             {isTitleSlide ? (
               // Title Slide
-              <div className="my-auto py-4 border-l-2 border-accent pl-5 sm:pl-7">
+              <div className="my-auto py-3 sm:py-4 border-l-2 border-accent pl-4 sm:pl-7">
                 <span className="inline-block rounded bg-white/5 px-2 py-0.5 text-[10px] font-mono text-muted uppercase tracking-wider mb-2">
                   Title Slide
                 </span>
-                <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-ink tracking-tight leading-tight">
+                <h2 className="text-lg sm:text-2xl lg:text-3xl font-semibold text-ink tracking-tight leading-tight">
                   {currentSlide.title}
                 </h2>
                 {currentSlide.subtitle && (

@@ -41,7 +41,7 @@ export default function PdfArtifactPanel({ document: pdfDoc, onClose }) {
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: "100%", opacity: 0 }}
       transition={{ type: "spring", damping: 28, stiffness: 240 }}
-      className="fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l border-white/10 bg-sidebar shadow-2xl backdrop-blur-xl sm:w-[480px] md:relative md:inset-auto md:w-[450px] lg:w-[540px] xl:w-[600px] shrink-0"
+      className="fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l border-white/10 bg-sidebar shadow-2xl backdrop-blur-xl sm:w-[480px] md:w-[520px] lg:w-[560px] xl:relative xl:inset-auto xl:w-[520px] 2xl:w-[600px] shrink-0"
       aria-label="Document Artifact Preview Panel"
     >
       {/* Top Header */}

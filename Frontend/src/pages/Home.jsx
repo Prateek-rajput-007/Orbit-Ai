@@ -119,18 +119,31 @@ function Home() {
 
         <AnimatePresence>
           {workspace.latestArtifact && (
-            workspace.latestArtifact.type === "code" || workspace.latestArtifact.files ? (
-              <CodeArtifactPanel
-                artifact={workspace.latestArtifact}
-                conversationId={workspace.activeId}
-                onClose={() => workspace.setLatestArtifact(null)}
+            <>
+              {/* Overlay Backdrop for Mobile & Tablet viewports below xl */}
+              <motion.button
+                className="fixed inset-0 z-30 border-0 bg-black/60 p-0 backdrop-blur-sm xl:hidden cursor-pointer"
+                type="button"
+                aria-label="Close artifact preview"
+                onClick={() => workspace.setLatestArtifact(null)}
+                initial={reduceMotion ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.16 }}
               />
-            ) : (
-              <PdfArtifactPanel
-                document={workspace.latestArtifact}
-                onClose={() => workspace.setLatestArtifact(null)}
-              />
-            )
+              {workspace.latestArtifact.type === "code" || workspace.latestArtifact.files ? (
+                <CodeArtifactPanel
+                  artifact={workspace.latestArtifact}
+                  conversationId={workspace.activeId}
+                  onClose={() => workspace.setLatestArtifact(null)}
+                />
+              ) : (
+                <PdfArtifactPanel
+                  document={workspace.latestArtifact}
+                  onClose={() => workspace.setLatestArtifact(null)}
+                />
+              )}
+            </>
           )}
         </AnimatePresence>
       </section>

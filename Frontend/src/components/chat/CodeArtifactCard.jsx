@@ -168,11 +168,12 @@ export default function CodeArtifactCard({
             <button
               type="button"
               onClick={() => setShowDeployConfirm(true)}
-              className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] px-2.5 text-xs font-medium text-ink-soft transition cursor-pointer"
+              className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] px-2 sm:px-2.5 text-xs font-medium text-ink-soft transition cursor-pointer"
               title="Deploy project to Netlify"
             >
               <Cloud size={11} />
-              <span>{isFailed ? "Retry Deploy" : "Deploy"}</span>
+              <span className="hidden sm:inline">{isFailed ? "Retry Deploy" : "Deploy"}</span>
+              <span className="sm:hidden">{isFailed ? "Retry" : "Deploy"}</span>
             </button>
           ) : null}
 
