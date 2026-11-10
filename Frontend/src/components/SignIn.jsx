@@ -152,7 +152,7 @@ function SignIn({ error, isSigningIn, onSignIn }) {
 
       {/* Top Navigation Bar */}
       <header className="sticky top-0 z-40 border-b border-white/[0.07] bg-[#07080a]/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Logo & Brand Identity */}
           <div className="flex items-center gap-3">
             <div className="relative grid size-9 place-items-center rounded-xl border border-accent-border bg-accent-soft text-accent shadow-sm shadow-accent/20">
@@ -668,7 +668,7 @@ function SignIn({ error, isSigningIn, onSignIn }) {
             </div>
 
             {/* Agent Selector Tabs */}
-            <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.02] p-2 backdrop-blur-md sm:grid-cols-3 lg:grid-cols-6">
+            <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.02] p-2 backdrop-blur-md sm:grid-cols-3 min-[900px]:grid-cols-6">
               {AGENT_SHOWCASE.map((agent) => {
                 const Icon = agent.icon
                 const isActive = agent.id === activeTabId
@@ -734,9 +734,9 @@ function SignIn({ error, isSigningIn, onSignIn }) {
                 </div>
 
                 {/* Prompt badge preview */}
-                <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-muted">
-                  <span className="text-[10px] font-mono uppercase text-accent font-semibold">User:</span>
-                  <span className="italic text-ink-soft line-clamp-1">&ldquo;{activeAgent.promptPreview}&rdquo;</span>
+                <div className="flex max-w-full min-w-0 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-muted overflow-hidden">
+                  <span className="shrink-0 text-[10px] font-mono uppercase text-accent font-semibold">User:</span>
+                  <span className="truncate italic text-ink-soft">&ldquo;{activeAgent.promptPreview}&rdquo;</span>
                 </div>
               </div>
 
@@ -771,12 +771,12 @@ function SignIn({ error, isSigningIn, onSignIn }) {
                         <pre className="overflow-x-auto text-[11px] leading-relaxed text-amber-100/90 sm:text-xs">
                           <code>{activeAgent.demo.codeSnippet}</code>
                         </pre>
-                        <div className="mt-2 flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-950/20 px-3.5 py-2 text-[11px] text-emerald-300">
+                        <div className="mt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 rounded-xl border border-emerald-500/20 bg-emerald-950/20 px-3.5 py-2 text-[11px] text-emerald-300">
                           <div className="flex items-center gap-2 font-sans">
-                            <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-                            <span>Live sandbox renderer mounted • Interactive Preview ready</span>
+                            <span className="size-2 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
+                            <span className="line-clamp-1 sm:line-clamp-none">Live sandbox renderer mounted • Interactive Preview ready</span>
                           </div>
-                          <span className="font-mono text-[10px] text-emerald-400">React 19</span>
+                          <span className="shrink-0 font-mono text-[10px] text-emerald-400">React 19</span>
                         </div>
                       </div>
                     )}
@@ -900,11 +900,11 @@ function SignIn({ error, isSigningIn, onSignIn }) {
                           ))}
                         </div>
 
-                        <div className="flex items-center justify-between rounded-xl border border-accent-border/40 bg-accent-soft px-4 py-2.5 text-xs">
-                          <span className="font-medium text-accent">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 sm:gap-2 rounded-xl border border-accent-border/40 bg-accent-soft px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs">
+                          <span className="font-medium text-accent line-clamp-1">
                             ✨ Generated: Printable Interview Cheat Sheet
                           </span>
-                          <span className="flex items-center gap-1 text-[11px] text-muted-soft">
+                          <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-soft">
                             <Download size={13} /> PDF Viewer Panel
                           </span>
                         </div>
@@ -1016,12 +1016,12 @@ function SignIn({ error, isSigningIn, onSignIn }) {
             </p>
           </div>
 
-          <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3">
-            <div className="rounded-3xl border border-white/10 bg-[#0c0d12]/60 p-7 backdrop-blur-md">
+          <div className="mt-8 sm:mt-10 grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-3">
+            <div className="rounded-3xl border border-white/10 bg-[#0c0d12]/60 p-5 sm:p-6 lg:p-7 backdrop-blur-md">
               <div className="flex size-11 items-center justify-center rounded-2xl border border-accent-border bg-accent-soft text-accent">
                 <Bot size={20} />
               </div>
-              <span className="mt-5 block font-mono text-xs uppercase tracking-wider text-accent font-semibold">
+              <span className="mt-4 sm:mt-5 block font-mono text-xs uppercase tracking-wider text-accent font-semibold">
                 Step 01
               </span>
               <h3 className="mt-1 font-display text-lg font-medium text-ink">
@@ -1032,11 +1032,11 @@ function SignIn({ error, isSigningIn, onSignIn }) {
               </p>
             </div>
 
-            <div className="rounded-3xl border border-accent-border/50 bg-[#0c0d12]/90 p-7 shadow-xl shadow-accent/5 backdrop-blur-md">
+            <div className="rounded-3xl border border-accent-border/50 bg-[#0c0d12]/90 p-5 sm:p-6 lg:p-7 shadow-xl shadow-accent/5 backdrop-blur-md">
               <div className="flex size-11 items-center justify-center rounded-2xl border border-accent bg-accent text-night">
                 <BrainCircuit size={20} />
               </div>
-              <span className="mt-5 block font-mono text-xs uppercase tracking-wider text-accent font-semibold">
+              <span className="mt-4 sm:mt-5 block font-mono text-xs uppercase tracking-wider text-accent font-semibold">
                 Step 02
               </span>
               <h3 className="mt-1 font-display text-lg font-medium text-ink">
@@ -1047,11 +1047,11 @@ function SignIn({ error, isSigningIn, onSignIn }) {
               </p>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-[#0c0d12]/60 p-7 backdrop-blur-md">
+            <div className="rounded-3xl border border-white/10 bg-[#0c0d12]/60 p-5 sm:p-6 lg:p-7 backdrop-blur-md">
               <div className="flex size-11 items-center justify-center rounded-2xl border border-accent-border bg-accent-soft text-accent">
                 <Layers size={20} />
               </div>
-              <span className="mt-5 block font-mono text-xs uppercase tracking-wider text-accent font-semibold">
+              <span className="mt-4 sm:mt-5 block font-mono text-xs uppercase tracking-wider text-accent font-semibold">
                 Step 03
               </span>
               <h3 className="mt-1 font-display text-lg font-medium text-ink">
@@ -1083,13 +1083,13 @@ function SignIn({ error, isSigningIn, onSignIn }) {
             </p>
           </div>
 
-          <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-8 sm:mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 min-[900px]:grid-cols-3">
             {CAPABILITY_PILLARS.map((item) => {
               const Icon = item.icon
               return (
                 <div
                   key={item.title}
-                  className="group relative flex flex-col justify-between rounded-3xl border border-white/10 bg-white/[0.02] p-7 transition-all hover:border-accent-border/60 hover:bg-white/[0.04]"
+                  className="group relative flex flex-col justify-between rounded-3xl border border-white/10 bg-white/[0.02] p-5 sm:p-6 lg:p-7 transition-all hover:border-accent-border/60 hover:bg-white/[0.04]"
                 >
                   <div>
                     <div className="flex items-center justify-between pb-5">
@@ -1123,7 +1123,7 @@ function SignIn({ error, isSigningIn, onSignIn }) {
         {/* =========================================================================
             5. FINAL CALL TO ACTION: High-Impact Sign-In Card
             ========================================================================= */}
-        <section className="relative mt-0 overflow-hidden rounded-3xl border border-amber-400/30 border-t-white/30 bg-gradient-to-b from-[#141624] via-[#0d0e16] to-[#07080c] p-8 text-center shadow-[0_20px_80px_rgba(0,0,0,0.85),0_0_60px_rgba(234,189,88,0.12)] backdrop-blur-2xl sm:p-14 sm:py-16">
+        <section className="relative mt-0 overflow-hidden rounded-3xl border border-amber-400/30 border-t-white/30 bg-gradient-to-b from-[#141624] via-[#0d0e16] to-[#07080c] p-6 sm:p-10 sm:py-14 lg:p-14 lg:py-16 text-center shadow-[0_20px_80px_rgba(0,0,0,0.85),0_0_60px_rgba(234,189,88,0.12)] backdrop-blur-2xl">
           {/* Ambient Lighting & Futuristic Grid Texture */}
           <div aria-hidden="true" className="pointer-events-none absolute inset-0">
             <div className="absolute -top-32 left-1/2 size-80 -translate-x-1/2 rounded-full bg-gradient-to-b from-amber-400/25 via-amber-500/10 to-transparent blur-[100px]" />
@@ -1141,7 +1141,7 @@ function SignIn({ error, isSigningIn, onSignIn }) {
             </div>
 
             {/* Shimmer Metallic Headline */}
-            <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight sm:text-5xl lg:text-[3.1rem] lg:leading-[1.12]">
+            <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight sm:text-4xl lg:text-[3.1rem] lg:leading-[1.12]">
               <span className="block bg-gradient-to-b from-white via-white to-white/70 bg-clip-text text-transparent">
                 Enter the Orbit workspace
               </span>
@@ -1181,14 +1181,14 @@ function SignIn({ error, isSigningIn, onSignIn }) {
       </main>
 
       {/* Footer */}
-      <footer className="mt-20 border-t border-white/[0.07] bg-[#07080a] py-8 text-xs text-muted-soft">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-5 text-center sm:flex-row sm:px-8 sm:text-left">
+      <footer className="mt-12 sm:mt-16 lg:mt-20 border-t border-white/[0.07] bg-[#07080a] py-6 sm:py-8 text-xs text-muted-soft">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 text-center sm:flex-row sm:text-left">
           <div className="flex items-center gap-2">
             <Orbit size={14} className="text-accent" />
             <span className="font-semibold text-ink">Orbit</span>
             <span>— The Autonomous Multi-Agent AI Workspace</span>
           </div>
-          <div className="flex items-center gap-4 text-[11px]">
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:gap-4 text-[11px]">
             <span>Code Sandbox</span>
             <span>•</span>
             <span>Presentation Decks</span>
