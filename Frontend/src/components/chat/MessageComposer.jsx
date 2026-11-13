@@ -11,6 +11,8 @@ function MessageComposer({
   onStop,
   draft: externalDraft,
   onDraftChange,
+  activeProject = null,
+  onClearActiveProject = null,
 }) {
   const [internalDraft, setInternalDraft] = useState("")
   const draft = externalDraft !== undefined ? externalDraft : internalDraft
@@ -135,6 +137,30 @@ function MessageComposer({
         className="rounded-2xl border border-white/[0.09] bg-[#0c0d14]/90 p-3 shadow-[0_12px_40px_rgba(0,0,0,0.6),inset_0_1px_0_0_rgba(255,255,255,0.08)] backdrop-blur-2xl transition-all duration-200 focus-within:border-amber-400/50 focus-within:ring-2 focus-within:ring-amber-400/15 focus-within:shadow-[0_16px_50px_rgba(0,0,0,0.7),0_0_24px_rgba(234,189,88,0.12),inset_0_1px_0_0_rgba(255,255,255,0.12)] sm:p-3.5"
         onSubmit={submit}
       >
+        {/* Active Project Target Context Pill */}
+        {activeProject && (
+          <div className="flex items-center gap-1.5 px-2.5 py-1 mb-2 rounded-lg bg-accent/10 border border-accent/25 text-xs text-accent w-fit max-w-full">
+            <span className="size-1.5 rounded-full bg-accent animate-pulse" />
+            <span className="font-semibold text-ink-soft">Targeting:</span>
+            <span className="font-mono text-ink font-semibold truncate max-w-[200px] sm:max-w-[320px]">
+              {activeProject.title || "Active Project"}
+            </span>
+            <span className="px-1 py-0.2 rounded bg-accent/20 text-[10px] font-mono text-accent">
+              v{activeProject.version || 1}
+            </span>
+            {onClearActiveProject && (
+              <button
+                type="button"
+                onClick={onClearActiveProject}
+                className="ml-1 p-0.5 rounded hover:bg-white/10 text-muted hover:text-ink transition cursor-pointer"
+                title="Deselect project (prompt will target conversation or create new project)"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+        )}
+
         <textarea
           className="block max-h-44 min-h-10 w-full resize-none border-0 bg-transparent px-1 pb-2 pt-0.5 text-xs sm:text-sm leading-relaxed text-ink outline-none placeholder:text-muted-soft disabled:opacity-60"
           aria-label="Message Orbit"

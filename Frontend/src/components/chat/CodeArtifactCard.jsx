@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import {
   Code2,
   Play,
@@ -14,9 +14,13 @@ import {
   Globe,
   AlertCircle,
   Loader2,
+  History,
 } from "lucide-react"
 import { downloadCodeArtifactZip } from "../../lib/zipExporter.js"
+import { detectArtifactRuntime } from "../../lib/detectArtifactRuntime.js"
 import useArtifactDeployment from "./useArtifactDeployment.jsx"
+import ProjectVersionHistoryModal from "./ProjectVersionHistoryModal.jsx"
+import { fetchProjectVersionDetails } from "../../features/conversations/projectVersionActions.js"
 
 export default function CodeArtifactCard({
   codeArtifact,
@@ -28,6 +32,9 @@ export default function CodeArtifactCard({
   const [activeFileIndex, setActiveFileIndex] = useState(0)
   const [copiedFile, setCopiedFile] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
+
+  const detectedRuntime = useMemo(() => detectArtifactRuntime(codeArtifact), [codeArtifact])
 
   const {
     isDeploying,
@@ -47,8 +54,41 @@ export default function CodeArtifactCard({
 
   const files = codeArtifact.files
   const activeFile = files[activeFileIndex] || files[0]
+  const projectId = codeArtifact.projectId
+  const versionNumber = codeArtifact.version || codeArtifact.versionNumber || 1
+  const isReactProject = detectedRuntime.type === "react"
+
+  const handlePreviewHistoricalVersion = async (verNum) => {
+    try {
+      if (!projectId) return
+      const details = await fetchProjectVersionDetails(projectId, verNum)
+      if (details?.snapshot && onOpenArtifact) {
+        onOpenArtifact({
+          type: "code",
+          ...details.snapshot,
+          projectId,
+          version: verNum,
+          versionNumber: verNum,
+          changeSummary: details.changeSummary,
+        })
+      }
+    } catch (err) {
+      console.error("Failed to preview version:", err)
+    }
+  }
+
+  const handleVersionRestored = (restoredArtifact) => {
+    if (onOpenArtifact && restoredArtifact) {
+      onOpenArtifact({
+        type: "code",
+        ...restoredArtifact,
+      })
+    }
+  }
   const isWebPreviewable = Boolean(
-    codeArtifact.previewType === "html" || files.some((f) => f.path.endsWith(".html"))
+    isReactProject ||
+      codeArtifact.previewType === "html" ||
+      files.some((f) => f.path.endsWith(".html"))
   )
   const isDeployable = Boolean(
     isWebPreviewable ||
@@ -94,6 +134,17 @@ export default function CodeArtifactCard({
               <span className="rounded border border-white/10 bg-white/5 px-1.5 py-0.2 font-mono text-[10px] text-muted">
                 Artifact
               </span>
+              {projectId && (
+                <button
+                  type="button"
+                  onClick={() => setShowHistoryModal(true)}
+                  className="rounded border border-accent/30 bg-accent/10 hover:bg-accent/20 px-1.5 py-0.2 font-mono text-[10px] text-accent transition inline-flex items-center gap-1 cursor-pointer"
+                  title="View project version history"
+                >
+                  <History size={9} />
+                  <span>v{versionNumber}</span>
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-2 pt-0.5 text-[11px] text-muted">
               <span className="inline-flex items-center gap-1">
@@ -129,6 +180,19 @@ export default function CodeArtifactCard({
 
         {/* Action controls */}
         <div className="flex items-center gap-1.5 shrink-0">
+          {/* Version History Button */}
+          {projectId && (
+            <button
+              type="button"
+              onClick={() => setShowHistoryModal(true)}
+              className="inline-flex h-7 items-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] px-2 text-xs font-mono font-medium text-ink-soft transition cursor-pointer"
+              title="Project Version History"
+            >
+              <History size={11} className="text-accent" />
+              <span>v{versionNumber}</span>
+            </button>
+          )}
+
           {/* Live Preview Button */}
           {isWebPreviewable && onOpenArtifact && (
             <button
@@ -162,18 +226,20 @@ export default function CodeArtifactCard({
               className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 text-xs font-medium text-muted opacity-60 cursor-not-allowed"
             >
               <Loader2 size={11} className="animate-spin" />
-              <span>Deploying...</span>
+              <span>{isReactProject ? "Building..." : "Deploying..."}</span>
             </button>
           ) : isDeployable ? (
             <button
               type="button"
               onClick={() => setShowDeployConfirm(true)}
               className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] px-2 sm:px-2.5 text-xs font-medium text-ink-soft transition cursor-pointer"
-              title="Deploy project to Netlify"
+              title={isReactProject ? "Build production bundle and deploy live to Netlify" : "Deploy project to Netlify"}
             >
               <Cloud size={11} />
-              <span className="hidden sm:inline">{isFailed ? "Retry Deploy" : "Deploy"}</span>
-              <span className="sm:hidden">{isFailed ? "Retry" : "Deploy"}</span>
+              <span className="hidden sm:inline">
+                {isFailed ? "Retry Deploy" : isReactProject ? "Build & Deploy" : "Deploy"}
+              </span>
+              <span className="sm:hidden">{isFailed ? "Retry" : isReactProject ? "Build" : "Deploy"}</span>
             </button>
           ) : null}
 
@@ -215,7 +281,11 @@ export default function CodeArtifactCard({
         <div className="border-b border-white/10 bg-white/[0.03] p-3 text-xs text-ink-soft flex flex-wrap items-center justify-between gap-2.5">
           <div className="flex items-center gap-2">
             <Cloud size={14} className="text-accent shrink-0" />
-            <span>Deploy this project live to Netlify public hosting?</span>
+            <span>
+              {isReactProject
+                ? "Build production bundle and deploy live to Netlify public hosting?"
+                : "Deploy this project live to Netlify public hosting?"}
+            </span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
@@ -322,6 +392,17 @@ export default function CodeArtifactCard({
             )}
           </div>
         </div>
+      )}
+      {/* Version History Modal */}
+      {showHistoryModal && projectId && (
+        <ProjectVersionHistoryModal
+          projectId={projectId}
+          currentVersionNumber={versionNumber}
+          conversationId={conversationId}
+          onClose={() => setShowHistoryModal(false)}
+          onPreviewVersion={handlePreviewHistoricalVersion}
+          onVersionRestored={handleVersionRestored}
+        />
       )}
     </div>
   )

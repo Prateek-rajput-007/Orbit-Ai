@@ -15,6 +15,93 @@ export const PROJECT_INTENTS = {
     AMBIGUOUS_INTENT: "AMBIGUOUS_INTENT",
 };
 
+export const PROJECT_RUNTIME_STRATEGIES = {
+    REACT_APPLICATION: "REACT_APPLICATION",
+    LEGACY_WEB_APPLICATION: "LEGACY_WEB_APPLICATION",
+};
+
+/**
+ * Checks if a CodeArtifact is already a React application.
+ */
+export function isArtifactReactProject(artifact) {
+    if (!artifact || !Array.isArray(artifact.files) || artifact.files.length === 0) {
+        return false;
+    }
+    return artifact.files.some((f) => {
+        const pathLower = (f.path || "").toLowerCase();
+        if (
+            pathLower.endsWith(".jsx") ||
+            pathLower.endsWith(".tsx") ||
+            pathLower.includes("components/") ||
+            pathLower.includes("src/app.") ||
+            pathLower.includes("src/main.")
+        ) {
+            return true;
+        }
+        if (pathLower === "package.json" && typeof f.content === "string") {
+            try {
+                const pkg = JSON.parse(f.content);
+                const all = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
+                if (all.react || all["react-dom"]) return true;
+            } catch {
+                // fall through
+            }
+        }
+        if (typeof f.content === "string") {
+            if (/from\s+["']react["']/.test(f.content) || /from\s+["']react-dom(\/client)?["']/.test(f.content)) {
+                return true;
+            }
+        }
+        return false;
+    });
+}
+
+/**
+ * Deterministically decides whether to use modern React generation or legacy HTML/CSS/JS.
+ *
+ * @param {string} promptText
+ * @param {object|null} existingArtifact
+ * @returns {"REACT_APPLICATION"|"LEGACY_WEB_APPLICATION"}
+ */
+export function determineProjectRuntimeStrategy(promptText = "", existingArtifact = null) {
+    const cleanPrompt = (promptText || "").trim();
+
+    // 1. Check if an existing project is being modified
+    const hasExisting = Boolean(
+        existingArtifact &&
+        Array.isArray(existingArtifact.files) &&
+        existingArtifact.files.length > 0
+    );
+
+    if (hasExisting) {
+        // Explicit request to migrate existing project to React
+        const isMigrationToReact = /\b(convert|migrate|rewrite|upgrade|switch)\b.*\b(to\s+react|in\s+react|into\s+react)\b/i.test(cleanPrompt);
+        if (isMigrationToReact) {
+            return PROJECT_RUNTIME_STRATEGIES.REACT_APPLICATION;
+        }
+
+        // Preserve runtime of active project
+        return isArtifactReactProject(existingArtifact)
+            ? PROJECT_RUNTIME_STRATEGIES.REACT_APPLICATION
+            : PROJECT_RUNTIME_STRATEGIES.LEGACY_WEB_APPLICATION;
+    }
+
+    // 2. New project requests:
+    // Check for explicit signals requesting vanilla / plain HTML / static website
+    const hasWithoutReact = /\b(without|no|not)\s+react\b/i.test(cleanPrompt);
+    const isExplicitLegacy =
+        hasWithoutReact ||
+        /\b(vanilla\s+(javascript|js)|plain\s+(html|javascript|js)|pure\s+(html|js)|simple\s+(html\s+)?landing\s+page|static\s+(website|webpage|page|site)|html\s+(and|&)\s+css\s+only|no\s+frameworks?)\b/i.test(cleanPrompt);
+    const mentionsReact = !hasWithoutReact && /\b(react|jsx|nextjs|spa)\b/i.test(cleanPrompt);
+
+    if (isExplicitLegacy && !mentionsReact) {
+        return PROJECT_RUNTIME_STRATEGIES.LEGACY_WEB_APPLICATION;
+    }
+
+    // Modern application requests default to React
+    return PROJECT_RUNTIME_STRATEGIES.REACT_APPLICATION;
+}
+
 /**
  * Patterns matching pure technical/conceptual questions that should not modify or create projects.
  */
@@ -88,6 +175,7 @@ const AMBIGUOUS_PATTERNS = [
  */
 export function classifyProjectIntent(promptText = "", existingArtifact = null, history = []) {
     const cleanPrompt = (promptText || "").trim();
+    const runtimeStrategy = determineProjectRuntimeStrategy(cleanPrompt, existingArtifact);
 
     const hasExisting = Boolean(
         existingArtifact &&
@@ -106,6 +194,7 @@ export function classifyProjectIntent(promptText = "", existingArtifact = null, 
                 confidence: 0.95,
                 reason: "Pure technical explanation requested with no existing project.",
                 shouldUseExistingArtifact: false,
+                runtimeStrategy,
             };
         }
 
@@ -114,6 +203,7 @@ export function classifyProjectIntent(promptText = "", existingArtifact = null, 
             confidence: 1.0,
             reason: "No prior project artifact exists in this conversation.",
             shouldUseExistingArtifact: false,
+            runtimeStrategy,
         };
     }
 
@@ -131,6 +221,7 @@ export function classifyProjectIntent(promptText = "", existingArtifact = null, 
             confidence: 0.95,
             reason: "User asked a general coding/architectural question without requesting project changes.",
             shouldUseExistingArtifact: false,
+            runtimeStrategy,
         };
     }
 
@@ -143,6 +234,7 @@ export function classifyProjectIntent(promptText = "", existingArtifact = null, 
             confidence: 0.5,
             reason: "Request is ambiguous between updating the current project and starting a new project.",
             shouldUseExistingArtifact: false,
+            runtimeStrategy,
             clarificationPrompt: `Would you like to update your current project (**${title}**) with this change, or create a completely new project from scratch? Please let me know how you'd like to proceed.`,
         };
     }
@@ -155,6 +247,7 @@ export function classifyProjectIntent(promptText = "", existingArtifact = null, 
             confidence: 0.95,
             reason: "User requested adding a new sub-element or feature to the existing project.",
             shouldUseExistingArtifact: true,
+            runtimeStrategy,
         };
     }
 
@@ -166,6 +259,7 @@ export function classifyProjectIntent(promptText = "", existingArtifact = null, 
             confidence: 0.98,
             reason: "User explicitly requested starting a brand-new project from scratch or replacing previous work.",
             shouldUseExistingArtifact: false,
+            runtimeStrategy,
         };
     }
 
@@ -177,6 +271,7 @@ export function classifyProjectIntent(promptText = "", existingArtifact = null, 
             confidence: 0.9,
             reason: "User requested styling, features, or bug fixes on the active project.",
             shouldUseExistingArtifact: true,
+            runtimeStrategy,
         };
     }
 
@@ -195,6 +290,7 @@ export function classifyProjectIntent(promptText = "", existingArtifact = null, 
             confidence: 0.85,
             reason: "User requested building a different application domain without referencing the existing project.",
             shouldUseExistingArtifact: false,
+            runtimeStrategy,
         };
     }
 
@@ -204,6 +300,7 @@ export function classifyProjectIntent(promptText = "", existingArtifact = null, 
         confidence: 0.75,
         reason: "Follow-up request in conversation with active project defaults to modifying existing project.",
         shouldUseExistingArtifact: true,
+        runtimeStrategy,
     };
 }
 

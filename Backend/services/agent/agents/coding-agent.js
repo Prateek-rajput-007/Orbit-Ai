@@ -1,8 +1,17 @@
 import { getModel } from "../config/llmModels.js";
 import { formatConversationContext } from "../utils/conversationContext.js";
 import { extractText } from "../utils/extractText.js";
-import { parseCodeArtifact } from "../utils/codeArtifact.js";
-import { classifyProjectIntent, PROJECT_INTENTS } from "../utils/projectIntent.js";
+import {
+    parseCodeArtifact,
+    validateArtifactIntegrity,
+    repairMissingReactImports,
+} from "../utils/codeArtifact.js";
+import {
+    classifyProjectIntent,
+    determineProjectRuntimeStrategy,
+    PROJECT_INTENTS,
+    PROJECT_RUNTIME_STRATEGIES,
+} from "../utils/projectIntent.js";
 
 export const codingAgent = async (state = {}) => {
     if (state?.isAborted?.()) {
@@ -101,7 +110,161 @@ Do NOT output a project JSON code artifact or file manifest. Output markdown dir
         }
     }
 
-    const newProjectSystemPrompt = `You are Orbit's Senior Staff Software Engineer and Coding Architect.
+    const runtimeStrategy = projectIntent?.runtimeStrategy || determineProjectRuntimeStrategy(userPrompt, state?.existingCodeArtifact);
+    const isReact = runtimeStrategy === PROJECT_RUNTIME_STRATEGIES.REACT_APPLICATION;
+
+    const newReactProjectSystemPrompt = `You are Orbit's Senior Staff Software Engineer and Coding Architect building a modern, multi-file React application.
+Your mission is to produce clean, modular, production-grade React applications that run directly inside our Sandpack browser runtime.
+
+CRITICAL ARCHITECTURE & EXECUTION RULES:
+1. NEVER produce truncated snippets, placeholders (e.g. "// TODO", "// rest of your code here", "..."), or pseudocode. Always provide the COMPLETE, WORKING code for every file.
+2. PROFESSIONAL SEPARATION OF CONCERNS (NO "GOD COMPONENTS" & NO COOKIE-CUTTER CODE):
+   - Never dump all state, storage, business logic, and DOM mutations into a single massive 'App.jsx'.
+   - 'src/App.jsx' must be a clean, high-level orchestrator (~30-60 lines) coordinating layout, custom hooks, and presentational views.
+   - Layer 1 — Pure Domain Engine ('src/utils/' or 'src/core/'):
+     * Extract all business logic, math calculations, formula parsers, precision formatters, and data converters into standalone, pure JavaScript modules with ZERO React dependencies.
+     * Pure functions are easy to test, robust against floating-point precision bugs, and fully decoupled from the UI.
+   - Layer 2 — Custom Hooks ('src/hooks/'):
+     * Encapsulate stateful logic, user actions, storage synchronization ('localStorage'), and window event listeners (e.g., keyboard shortcuts) in custom hooks (e.g., 'useCalculator.js', 'useTheme.js', 'useResume.js').
+     * Components and 'App.jsx' simply consume the hook: 'const { display, formula, history, pressKey, clearAll } = useCalculator();'.
+   - Layer 3 — Declarative Configurations ('src/constants/'):
+     * Avoid hardcoding repetitive JSX buttons or form fields. Define layouts, button palettes, section schemas, or navigation menus as declarative arrays/objects (e.g., 'src/constants/keypadLayout.js', 'src/constants/resumeSections.js').
+   - Layer 4 — Focused Presentational UI ('src/components/'):
+     * Build clean, modular components (Atoms/Molecules) that accept props or render data-driven configs.
+     * Decouple theme toggles: use a dedicated 'useTheme' hook or context rather than directly mutating 'document.documentElement' inside 'App.jsx'.
+3. REQUIRED PROJECT STRUCTURE:
+   - "package.json": Must declare valid JSON with "name", "version", and "dependencies" including "react": "^18.2.0" and "react-dom": "^18.2.0", plus any external libraries used (e.g. "lucide-react": "^0.263.1", "recharts": "^2.8.0", "date-fns": "^2.30.0").
+   - "index.html": HTML entry document containing '<div id="root"></div>' and '<script type="module" src="/src/main.jsx"></script>'. Include '<script src="https://cdn.tailwindcss.com"></script>' in the head for Tailwind CSS styling.
+   - "src/main.jsx": Application entry point using 'createRoot' from 'react-dom/client' to mount '<App />' into 'document.getElementById("root")'.
+   - "src/App.jsx": Clean top-level orchestrator coordinating layout, custom hooks, and components.
+   - "src/hooks/...": Custom hooks encapsulating state, persistence, and event listeners.
+   - "src/utils/...": Pure domain logic, math engine, parsers, and helper functions.
+   - "src/constants/...": Declarative configurations, button layouts, and schemas.
+   - "src/components/...": Reusable presentational components.
+   - "src/styles/index.css": Base styles, transitions, and custom utility classes.
+4. PREMIUM VISUAL DESIGN & TAILWIND POLISH (Bolt.new / Lovable standards):
+   - NEVER output raw unstyled HTML elements with default browser borders, grey backgrounds, or default serif fonts.
+   - Every single component MUST have Tailwind styling: modern rounded corners ('rounded-2xl', 'rounded-xl'), soft elevations ('shadow-xl', 'shadow-md'), clean borders, and smooth transitions ('transition-all active:scale-95').
+   - Use Lucide React icons (e.g. import { Moon, Sun, History, Trash2, RotateCcw, Copy, Check, Calculator } from "lucide-react") for professional iconography.
+   - Every button, input form, selector, and filter must have ACTIVE working handlers. No dead click handlers.
+   - Handle empty states and edge cases gracefully.
+5. ADAPTIVE, FEATURE-RICH APPLICATION EXCELLENCE:
+   - Never generate the exact same rigid template across different prompts. Adapt to the specific requirements:
+   - For Calculators & Math Tools (e.g. "calculator", "calc", "math app"):
+     * Architecture: 'src/utils/calculatorEngine.js' (pure evaluation, precision, formatters), 'src/hooks/useCalculator.js' (state, history, keyboard listener), 'src/constants/keypadLayout.js' (declarative button grid config), plus modular Display, Keypad, and History components.
+     * Keypad: Proper CSS Grid ('grid grid-cols-4 gap-2.5 sm:gap-3') with squircle/rounded buttons. Color-code digits, operators, clear/backspace, and equals. Never render buttons in a single inline row!
+     * Screen: Digital LCD display with formula breadcrumb and large formatted result.
+     * Features: Calculation history drawer/log with click-to-recall, keyboard listeners (Enter, Backspace, Escape, numbers, operators), and theme support.
+     * Adaptive depth: If prompt mentions scientific/advanced/SaaS, add mode toggling (Standard vs. Scientific with sin, cos, tan, sqrt, pow) or unit converters.
+   - For Resume Builders & Document SaaS (e.g. "resume", "cv builder", "portfolio maker"):
+     * Architecture: 'src/utils/resumeData.js' (schemas, sample profiles, export utilities), 'src/hooks/useResume.js' (CRUD on sections, local persistence), modular form sections, and switchable templates (Modern, Minimal, Executive).
+   - For Dashboards & Productivity SaaS (e.g. "dashboard", "crm", "task board"):
+     * Architecture: Custom hooks for data filtering/sorting, clean layout with sidebar/header, summary metric cards with trend badges, and interactive lists/tables.
+6. SYNTAX INTEGRITY, MODULARITY & COMPLETION:
+   - Ensure EVERY file is 100% syntactically complete.
+   - All string literals, template strings, JSX tags, and brackets MUST be closed.
+   - Keep project architecture modular yet concise (typically 5 to 9 focused, high-quality files). Consolidate related sub-forms/cards into clean, coherent modules rather than splitting into 20+ micro-files that risk token truncation.
+   - Every file must have clean, complete imports and exports with zero broken syntax.
+7. STRICT OUTPUT FORMAT:
+   Return ONLY a valid JSON object with this exact structure:
+   \`\`\`json
+   {
+     "title": "Short Descriptive Title",
+     "description": "One sentence summary of the application",
+     "summary": "Engineering summary: component architecture, features implemented, and key capabilities.",
+     "entryFile": "src/main.jsx",
+     "files": [
+       {
+         "path": "package.json",
+         "content": "{\\n  \\"name\\": \\"orbit-app\\",\\n  \\"version\\": \\"1.0.0\\",\\n  \\"dependencies\\": {\\n    \\"react\\": \\"^18.2.0\\",\\n    \\"react-dom\\": \\"^18.2.0\\"\\n  }\\n}",
+         "language": "json"
+       },
+       {
+         "path": "index.html",
+         "content": "<!DOCTYPE html>...",
+         "language": "html"
+       },
+       {
+         "path": "src/main.jsx",
+         "content": "import React from 'react';...",
+         "language": "jsx"
+       },
+       {
+         "path": "src/App.jsx",
+         "content": "export default function App() { ... }",
+         "language": "jsx"
+       },
+       {
+         "path": "src/hooks/useCalculator.js",
+         "content": "export function useCalculator() { ... }",
+         "language": "javascript"
+       },
+       {
+         "path": "src/utils/calculatorEngine.js",
+         "content": "export function evaluateExpression() { ... }",
+         "language": "javascript"
+       },
+       {
+         "path": "src/constants/keypadLayout.js",
+         "content": "export const KEYPAD_BUTTONS = [ ... ];",
+         "language": "javascript"
+       },
+       {
+         "path": "src/styles/index.css",
+         "content": "/* Custom CSS */",
+         "language": "css"
+       },
+       {
+         "path": "src/components/Display.jsx",
+         "content": "export default function Display() { ... }",
+         "language": "jsx"
+       }
+     ]
+   }
+   \`\`\`
+   Do NOT omit the JSON code block. Output strictly valid JSON.`;
+
+    const incrementalReactSystemPrompt = `You are Orbit's Senior Staff Software Engineer and Coding Architect modifying an existing React application.
+The user wants to update, add features, create new components/templates, refactor, or style the existing React application.
+
+CRITICAL INCREMENTAL UPDATE RULES:
+1. DO NOT recreate unchanged files. ONLY emit operations for files that are created, updated, or deleted.
+2. For any file you create or update, provide the COMPLETE, WORKING code. Never use placeholders (e.g. "// TODO", "// rest of your code here", "..."), truncated snippets, or diff notation.
+3. Operations contract:
+   - "update": Replaces the entire content of an existing file.
+   - "create": Adds a new file to the project (e.g., 'src/components/NewTemplate.jsx', 'src/hooks/useNewFeature.js', 'src/utils/helper.js').
+   - "delete": Removes an existing file from the project.
+4. REACT ARCHITECTURE & CONVENTIONS:
+   - Inspect the existing project files below to understand existing component hierarchy, state structure, props, and styling.
+   - Respect Separation of Concerns: keep pure calculations/parsers in 'src/utils/', stateful hooks in 'src/hooks/', declarative configs in 'src/constants/', and presentational UI in 'src/components/'.
+   - Avoid bloating 'src/App.jsx' into a monolithic file. Keep 'App.jsx' as a lightweight orchestrator.
+   - Ensure all relative import paths are valid (e.g. from 'src/App.jsx' to './components/NewTemplate.jsx' or './hooks/useCustom.js').
+   - If introducing a new external npm package, update 'package.json' to declare it in "dependencies".
+   - Keep unchanged components and styling intact. Maintain high-quality Tailwind styling (modern rounded corners, CSS Grid layouts, soft elevations, active states). Never degrade styled UI to unstyled HTML.
+5. STRICT OUTPUT FORMAT:
+   Return ONLY a valid JSON object with this exact structure:
+   \`\`\`json
+   {
+     "title": "${existing?.title || "Project Title"}",
+     "description": "${existing?.description || "Project Description"}",
+     "summary": "Engineering summary: detailed explanation of the changes made, files updated/added/deleted, and how to test the new features.",
+     "operations": [
+       {
+         "type": "create",
+         "path": "src/components/NewFeature.jsx",
+         "content": "// Complete new component code..."
+       },
+       {
+         "type": "update",
+         "path": "src/App.jsx",
+         "content": "// Complete updated App.jsx code..."
+       }
+     ]
+   }
+   \`\`\`
+   Do NOT omit the JSON code block. Output strictly valid JSON.`;
+
+    const newLegacyProjectSystemPrompt = `You are Orbit's Senior Staff Software Engineer and Coding Architect.
 Your mission is to write complete, reliable, production-ready, beautiful code projects.
 
 CRITICAL ARCHITECTURE & EXECUTION RULES:
@@ -148,7 +311,7 @@ CRITICAL ARCHITECTURE & EXECUTION RULES:
    \`\`\`
    Do NOT omit the JSON code block. Output strictly valid JSON.`;
 
-    const incrementalSystemPrompt = `You are Orbit's Senior Staff Software Engineer and Coding Architect modifying an existing code project.
+    const incrementalLegacySystemPrompt = `You are Orbit's Senior Staff Software Engineer and Coding Architect modifying an existing code project.
 The user wants to update, add features, refactor, or style the existing project.
 
 CRITICAL INCREMENTAL UPDATE RULES:
@@ -191,7 +354,12 @@ CRITICAL INCREMENTAL UPDATE RULES:
    \`\`\`
    Do NOT omit the JSON code block. Output strictly valid JSON.`;
 
-    const systemPrompt = hasExisting ? incrementalSystemPrompt : newProjectSystemPrompt;
+    let systemPrompt;
+    if (isReact) {
+        systemPrompt = hasExisting ? incrementalReactSystemPrompt : newReactProjectSystemPrompt;
+    } else {
+        systemPrompt = hasExisting ? incrementalLegacySystemPrompt : newLegacyProjectSystemPrompt;
+    }
 
     let userMessage = "";
     if (hasExisting) {
@@ -204,8 +372,9 @@ CRITICAL INCREMENTAL UPDATE RULES:
             : "";
 
         userMessage = `${conversationContext ? `Recent conversation context:\n${conversationContext}\n\n` : ""}EXISTING PROJECT CONTEXT:
-Project Title: ${existing.title || "Web Application"}
-Entry File: ${existing.entryFile || "index.html"}
+Project Title: ${existing.title || (isReact ? "React Application" : "Web Application")}
+Runtime: ${isReact ? "React (Sandpack Runtime)" : "Vanilla HTML/CSS/JS (Iframe Runtime)"}
+Entry File: ${existing.entryFile || (isReact ? "src/main.jsx" : "index.html")}
 Total Files: ${existing.files.length}
 
 CURRENT PROJECT FILES:
@@ -224,26 +393,40 @@ ${userPrompt}`;
     onStage?.(
         "analyzing",
         hasExisting
-            ? "Analyzing existing project structure and planning incremental changes..."
-            : "Planning application architecture & multi-file structure..."
+            ? (isReact ? "Analyzing existing React component hierarchy and planning incremental changes..." : "Analyzing existing project structure and planning incremental changes...")
+            : (isReact ? "Planning React application architecture & modular components..." : "Planning application architecture & multi-file structure...")
     );
 
     // Heartbeat: emit progress updates every 15 s so the frontend stage indicator stays alive
-    // during long generations (PaisaPilot-scale apps can take 60–120 s to generate ~23K tokens).
     const HEARTBEAT_MESSAGES = hasExisting
-        ? [
-            "Reviewing existing project files...",
-            "Applying incremental code updates...",
-            "Validating component updates and styling...",
-            "Finalising project structure...",
-        ]
-        : [
-            "Writing HTML structure and layout...",
-            "Building CSS styles and responsive design...",
-            "Generating JavaScript logic and interactions...",
-            "Finalising data models and UI components...",
-            "Completing application code...",
-        ];
+        ? (isReact
+            ? [
+                "Reviewing existing React components and dependencies...",
+                "Applying incremental React file updates...",
+                "Validating component imports and state management...",
+                "Finalising project structure and preview...",
+            ]
+            : [
+                "Reviewing existing project files...",
+                "Applying incremental code updates...",
+                "Validating component updates and styling...",
+                "Finalising project structure...",
+            ])
+        : (isReact
+            ? [
+                "Setting up React project structure and package manifest...",
+                "Building React components and modular UI...",
+                "Implementing component state and event handlers...",
+                "Finalising styling and responsive layouts...",
+                "Completing React application code...",
+            ]
+            : [
+                "Writing HTML structure and layout...",
+                "Building CSS styles and responsive design...",
+                "Generating JavaScript logic and interactions...",
+                "Finalising data models and UI components...",
+                "Completing application code...",
+            ]);
     let heartbeatIdx = 0;
     let heartbeatTimer = null;
     const startHeartbeat = () => {
@@ -260,8 +443,8 @@ ${userPrompt}`;
         onStage?.(
             "generating",
             hasExisting
-                ? "Applying incremental file updates and generating new components..."
-                : "Generating complete HTML, CSS, and JavaScript project files..."
+                ? (isReact ? "Applying incremental React component updates..." : "Applying incremental file updates and generating new components...")
+                : (isReact ? "Generating complete multi-file React application..." : "Generating complete HTML, CSS, and JavaScript project files...")
         );
         startHeartbeat();
         if (typeof llm.stream === "function") {
@@ -330,7 +513,25 @@ ${userPrompt}`;
             ? "Validating updated files, applying security sandbox, and refreshing live preview..."
             : "Validating code files, applying security sandbox, and preparing live preview..."
     );
-    const codeArtifact = parseCodeArtifact(rawText, userPrompt, existing);
+    let codeArtifact = parseCodeArtifact(rawText, userPrompt, existing, runtimeStrategy);
+
+    // React Project Integrity Gate
+    if (codeArtifact && codeArtifact.files && codeArtifact.files.length > 0) {
+        const integrity = validateArtifactIntegrity(codeArtifact, runtimeStrategy);
+        if (!integrity.valid) {
+            console.warn(
+                "Artifact produced integrity violations; attempting auto-repair:",
+                integrity.errors.map((e) => e.message).join("; ")
+            );
+            const repaired = repairMissingReactImports(codeArtifact, integrity, runtimeStrategy);
+            if (repaired && repaired.integrity?.valid) {
+                codeArtifact = repaired;
+            } else if (hasExisting) {
+                console.warn("Unrepairable integrity violation in incremental turn; rolling back to prior valid artifact.");
+                codeArtifact = existing;
+            }
+        }
+    }
 
     // Build a comprehensive, helpful chat response for the user
     let aiResponse = "";
@@ -339,11 +540,15 @@ ${userPrompt}`;
             .map((f) => `- \`${f.path}\` (${f.language}, ${(f.size / 1024).toFixed(1)} KB)`)
             .join("\n");
 
-        const previewNote = codeArtifact.previewType === "html"
+        const previewNote = isReact
             ? (hasExisting
-                ? "✨ **Live Preview Updated**: Click **Preview** in the artifact card to test your updated application."
-                : "✨ **Live Sandbox Preview Ready**: Click **Preview** in the artifact card to interact with the live application in the side panel.")
-            : "📦 **Project Artifact Ready**: Inspect the source files below or click **Download ZIP**.";
+                ? "⚛️ **React Project Updated**: Sandpack live hot-reload preview is active in the side panel."
+                : "⚛️ **React Application Ready**: Click **Preview** to launch the interactive multi-file workspace in Sandpack.")
+            : (codeArtifact.previewType === "html"
+                ? (hasExisting
+                    ? "✨ **Live Preview Updated**: Click **Preview** in the artifact card to test your updated application."
+                    : "✨ **Live Sandbox Preview Ready**: Click **Preview** in the artifact card to interact with the live application in the side panel.")
+                : "📦 **Project Artifact Ready**: Inspect the source files below or click **Download ZIP**.");
 
         const headerTitle = hasExisting
             ? `### ${codeArtifact.title} (Updated)`

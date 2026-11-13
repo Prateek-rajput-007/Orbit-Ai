@@ -100,11 +100,25 @@ export const validateAgentRequest = (body = {}, attachment = null, maxPromptChar
     }
   }
 
+  const projectId =
+    typeof body.projectId === "string" && body.projectId.trim()
+      ? body.projectId.trim()
+      : null;
+
+  const baseVersion =
+    typeof body.baseVersion === "number"
+      ? body.baseVersion
+      : body.baseVersion && !Number.isNaN(parseInt(body.baseVersion, 10))
+        ? parseInt(body.baseVersion, 10)
+        : null;
+
   return {
     isValid: true,
     prompt: trimmedPrompt,
     conversationId: conversationId.trim(),
     agentMode,
+    projectId,
+    baseVersion,
   };
 };
 

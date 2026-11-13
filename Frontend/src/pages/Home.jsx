@@ -114,6 +114,16 @@ function Home() {
             onSend={workspace.sendMessage}
             onStop={workspace.stopGenerating}
             onOpenArtifact={workspace.setLatestArtifact}
+            activeProject={
+              workspace.latestArtifact?.projectId
+                ? {
+                    projectId: workspace.latestArtifact.projectId,
+                    title: workspace.latestArtifact.title || "Project",
+                    version: workspace.latestArtifact.version || workspace.latestArtifact.versionNumber || 1,
+                  }
+                : null
+            }
+            onClearActiveProject={() => workspace.setLatestArtifact(null)}
           />
         </div>
 
@@ -136,6 +146,7 @@ function Home() {
                   artifact={workspace.latestArtifact}
                   conversationId={workspace.activeId}
                   onClose={() => workspace.setLatestArtifact(null)}
+                  onArtifactChange={workspace.setLatestArtifact}
                 />
               ) : (
                 <PdfArtifactPanel

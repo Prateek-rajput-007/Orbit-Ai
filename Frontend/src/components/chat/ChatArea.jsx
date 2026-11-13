@@ -13,6 +13,8 @@ function ChatArea({
   onSend,
   onStop,
   onOpenArtifact,
+  activeProject = null,
+  onClearActiveProject,
 }) {
   const bottomRef = useRef(null)
   const [agentMode, setAgentMode] = useState("auto")
@@ -126,6 +128,8 @@ function ChatArea({
         isSending={isSending}
         isDisabled={isLoading}
         onStop={onStop}
+        activeProject={activeProject}
+        onClearActiveProject={onClearActiveProject}
         onSend={(text, attachment, mode) => {
           setComposerDraft("")
           onSend(text, attachment, mode)

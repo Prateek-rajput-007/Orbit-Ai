@@ -1,6 +1,14 @@
 import express from "express";
 import multer from "multer";
 import { agent, deployArtifact } from "../controllers/agent.controller.js";
+import {
+    getConversationProjects,
+    getProjectDetails,
+    getProjectVersions,
+    getVersionDetails,
+    restoreVersion,
+    compareVersions,
+} from "../controllers/project.controller.js";
 
 const router = express.Router();
 const upload = multer({
@@ -22,5 +30,13 @@ router.post("/chat", (req, res, next) => {
 }, agent);
 
 router.post("/deploy", deployArtifact);
+
+// Project Version History Endpoints
+router.get("/projects/conversation/:conversationId", getConversationProjects);
+router.get("/projects/:projectId/versions", getProjectVersions);
+router.get("/projects/:projectId/versions/:versionNumber", getVersionDetails);
+router.post("/projects/:projectId/versions/:versionNumber/restore", restoreVersion);
+router.get("/projects/:projectId/compare", compareVersions);
+router.get("/projects/:projectId", getProjectDetails);
 
 export default router;

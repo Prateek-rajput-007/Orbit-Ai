@@ -108,7 +108,16 @@ export function useConversations(user) {
   const resetDeleteMutation = deleteMutation.reset
 
   const sendMutation = useMutation({
-    mutationFn: async ({ conversationId, prompt, title, agentMode, attachment, clientRequestId }) => {
+    mutationFn: async ({
+      conversationId,
+      prompt,
+      title,
+      agentMode,
+      attachment,
+      clientRequestId,
+      projectId,
+      baseVersion,
+    }) => {
       let data
       let accumulatedTokens = ""
 
@@ -140,7 +149,14 @@ export function useConversations(user) {
             },
             credentials: "include",
             signal: abortController.signal,
-            body: JSON.stringify({ prompt, conversationId, agentMode, clientRequestId }),
+            body: JSON.stringify({
+              prompt,
+              conversationId,
+              agentMode,
+              clientRequestId,
+              projectId: projectId || undefined,
+              baseVersion: baseVersion || undefined,
+            }),
           })
 
           if (!response.ok) {
@@ -193,6 +209,8 @@ export function useConversations(user) {
         payload.append("agentMode", agentMode)
         payload.append("attachment", attachment)
         if (clientRequestId) payload.append("clientRequestId", clientRequestId)
+        if (projectId) payload.append("projectId", projectId)
+        if (baseVersion) payload.append("baseVersion", String(baseVersion))
         const res = await api.post("/api/agent/chat", payload, {
           headers: {
             "Content-Type": "multipart/form-data",
@@ -484,6 +502,10 @@ export function useConversations(user) {
     const clientRequestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
     const turnId = `turn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
+    // Extract active project identity from the currently loaded workspace artifact
+    const activeProjectId = latestArtifact?.projectId || null
+    const activeBaseVersion = latestArtifact?.version || latestArtifact?.versionNumber || null
+
     resetSendMutation()
     setActionNotice("")
     setActiveTurnId(turnId)
@@ -496,12 +518,15 @@ export function useConversations(user) {
       clientRequestId,
       turnId,
       userMessageId: `${turnId}-user`,
+      projectId: activeProjectId,
+      baseVersion: activeBaseVersion,
     })
   }, [
     conversations,
     conversationsQuery.isPending,
     createConversationAsync,
     isSending,
+    latestArtifact,
     queryClient,
     resetSendMutation,
     selectedId,

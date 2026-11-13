@@ -5,6 +5,13 @@ import { deployArtifactProject } from "../utils/deployment/deploymentManager.js"
 import { createTrace } from "../utils/telemetry.js";
 import { classifyProjectIntent, PROJECT_INTENTS } from "../utils/projectIntent.js";
 import {
+    getActiveProjectForConversation,
+    createInitialProjectVersion,
+    createIncrementalProjectVersion,
+    listConversationProjects,
+    getProjectVersionDetails,
+} from "../utils/projectVersionService.js";
+import {
     acquireConcurrencyLease,
     renewConcurrencyLease,
     releaseConcurrencyLease,
@@ -133,11 +140,19 @@ export const agent = async (req, res) => {
             return res.status(validation.status).json(errPayload);
         }
 
-        const { prompt: promptText, conversationId, agentMode } = validation;
+        const {
+            prompt: promptText,
+            conversationId,
+            agentMode,
+            projectId: requestedProjectId,
+            baseVersion: expectedBaseVersion,
+        } = validation;
         const requestPayload = {
             prompt: promptText,
             conversationId,
             agentMode,
+            projectId: requestedProjectId || null,
+            baseVersion: expectedBaseVersion || null,
             model: req.body?.model || "",
             attachment: req.file ? {
                 originalname: req.file.originalname,
@@ -276,20 +291,128 @@ export const agent = async (req, res) => {
 
         if (isClientDisconnected) return;
 
-        // Find the latest existing coding artifact in this conversation (if any)
+        // 1. Fetch all projects in this conversation
+        let convProjects = [];
+        try {
+            convProjects = await listConversationProjects(conversationId, userId);
+        } catch (listErr) {
+            console.warn("[ProjectVersion] listConversationProjects warning:", listErr.message);
+        }
+
         let existingCodeArtifact = null;
-        if (Array.isArray(history)) {
-            for (let i = history.length - 1; i >= 0; i--) {
-                const msg = history[i];
-                if (
-                    msg &&
-                    msg.role === "assistant" &&
-                    msg.codeArtifact &&
-                    Array.isArray(msg.codeArtifact.files) &&
-                    msg.codeArtifact.files.length > 0
-                ) {
-                    existingCodeArtifact = msg.codeArtifact;
-                    break;
+
+        if (requestedProjectId) {
+            // Explicit project selection by client
+            const matchedProject = convProjects.find((p) => p.projectId === requestedProjectId);
+            if (!matchedProject) {
+                const errPayload = {
+                    message: `Project "${requestedProjectId}" not found in this conversation or unauthorized.`,
+                    error: "Project Not Found",
+                    status: 404,
+                };
+                if (isSse) {
+                    sendEvent("error", errPayload);
+                    return res.end();
+                }
+                return res.status(404).json(errPayload);
+            }
+
+            try {
+                const projectDetails = await getProjectVersionDetails({
+                    projectId: requestedProjectId,
+                    versionNumber: expectedBaseVersion || null,
+                    userId,
+                });
+                if (projectDetails?.snapshot) {
+                    existingCodeArtifact = projectDetails.snapshot;
+                }
+            } catch (pDetailsErr) {
+                console.warn("[ProjectVersion] getProjectVersionDetails warning:", pDetailsErr.message);
+            }
+        } else if (convProjects.length === 1) {
+            // Case C: Single project in conversation - reasonable automatic selection
+            try {
+                const activeProjectData = await getActiveProjectForConversation(conversationId, userId, convProjects[0].projectId);
+                if (activeProjectData?.currentArtifact) {
+                    existingCodeArtifact = activeProjectData.currentArtifact;
+                }
+            } catch (pDetailsErr) {
+                console.warn("[ProjectVersion] single project lookup warning:", pDetailsErr.message);
+            }
+        } else if (convProjects.length > 1) {
+            // Multiple projects exist, but client did not provide an active projectId
+            const tentativeIntent = classifyProjectIntent(promptText, null, history);
+
+            if (tentativeIntent.intent === PROJECT_INTENTS.MODIFY_EXISTING_PROJECT || tentativeIntent.intent === PROJECT_INTENTS.AMBIGUOUS_INTENT) {
+                // Check if prompt specifically mentions one of the project titles
+                const matchedByTitle = convProjects.filter((p) =>
+                    p.title && promptText.toLowerCase().includes(p.title.toLowerCase().trim())
+                );
+
+                if (matchedByTitle.length === 1) {
+                    // Unique match by title!
+                    try {
+                        const projectDetails = await getProjectVersionDetails({
+                            projectId: matchedByTitle[0].projectId,
+                            versionNumber: null,
+                            userId,
+                        });
+                        existingCodeArtifact = projectDetails?.snapshot || null;
+                    } catch (pDetailsErr) {
+                        console.warn("[ProjectVersion] matchedByTitle lookup warning:", pDetailsErr.message);
+                    }
+                } else {
+                    // Case D: Multiple existing projects with no selected project and ambiguous/modify prompt -> CLARIFICATION REQUEST!
+                    const projectListStr = convProjects
+                        .map((p) => `• **${p.title}** (v${p.currentVersionNumber})`)
+                        .join("\n");
+                    const clarificationMessage = `You have multiple projects in this conversation:\n\n${projectListStr}\n\nPlease select which project you would like to modify, or specify its name in your message (e.g. "Update ${convProjects[0].title} to...").`;
+
+                    sendEvent("stage", { stage: "clarification", message: "Multiple projects detected; requesting clarification..." });
+
+                    const savedMessages = await saveTurn(
+                        conversationId,
+                        userId,
+                        historyPrompt,
+                        {
+                            content: clarificationMessage,
+                            codeArtifact: null,
+                        },
+                        userAttachment
+                    );
+
+                    const finalPayload = {
+                        aiResponse: clarificationMessage,
+                        codeArtifact: null,
+                        userMessageId: savedMessages[0]._id,
+                        assistantMessageId: savedMessages[1]._id,
+                    };
+
+                    await markIdempotencyCompleted(userId, clientRequestId, requestPayload, finalPayload);
+
+                    if (isSse) {
+                        sendEvent("ready", finalPayload);
+                        sendEvent("done", { status: "complete", traceId: trace.traceId });
+                        return res.end();
+                    }
+                    return res.status(200).json(finalPayload);
+                }
+            }
+        } else {
+            // convProjects.length === 0: Fallback to message history scan (backward compatibility for legacy unmigrated conversations)
+            if (Array.isArray(history)) {
+                for (let i = history.length - 1; i >= 0; i--) {
+                    const msg = history[i];
+                    if (
+                        msg &&
+                        msg.role === "assistant" &&
+                        msg.codeArtifact &&
+                        Array.isArray(msg.codeArtifact.files) &&
+                        msg.codeArtifact.files.length > 0
+                    ) {
+                        existingCodeArtifact = msg.codeArtifact;
+                        break;
+                    }
                 }
             }
         }
@@ -334,6 +457,59 @@ export const agent = async (req, res) => {
         }
 
         const response = result.aiResponse || "I processed your request, but could not produce a response. Please try rephrasing.";
+
+        // Versioning Lifecycle: Persist immutable project version snapshot on successful generation
+        const isRolledBackToExisting = Boolean(
+            existingCodeArtifact?.artifactId &&
+            result.codeArtifact?.artifactId === existingCodeArtifact.artifactId
+        );
+        const isArtifactValid = result.codeArtifact?.integrity ? result.codeArtifact.integrity.valid : true;
+
+        if (
+            result.codeArtifact &&
+            Array.isArray(result.codeArtifact.files) &&
+            result.codeArtifact.files.length > 0 &&
+            !isRolledBackToExisting &&
+            isArtifactValid
+        ) {
+            try {
+                if (projectIntent.intent === PROJECT_INTENTS.MODIFY_EXISTING_PROJECT && existingCodeArtifact?.projectId) {
+                    const versionResult = await createIncrementalProjectVersion({
+                        projectId: existingCodeArtifact.projectId,
+                        userId,
+                        conversationId,
+                        artifact: result.codeArtifact,
+                        promptText,
+                        expectedBaseVersion,
+                    });
+                    result.codeArtifact = versionResult.artifact;
+                } else if (
+                    projectIntent.intent === PROJECT_INTENTS.NEW_PROJECT ||
+                    !existingCodeArtifact?.projectId
+                ) {
+                    const versionResult = await createInitialProjectVersion({
+                        userId,
+                        conversationId,
+                        artifact: result.codeArtifact,
+                    });
+                    result.codeArtifact = versionResult.artifact;
+                }
+            } catch (verErr) {
+                console.warn("[ProjectVersion] Version snapshot persistence warning:", verErr.message);
+                if (verErr.status === 409 || verErr.status === 503) {
+                    const errPayload = {
+                        message: verErr.message,
+                        error: verErr.code || "Version Conflict",
+                        status: verErr.status,
+                    };
+                    if (isSse) {
+                        sendEvent("error", errPayload);
+                        return res.end();
+                    }
+                    return res.status(verErr.status).json(errPayload);
+                }
+            }
+        }
 
         trace.mark("persistStart");
         sendEvent("stage", { stage: "saving", message: "Persisting conversation and artifact..." });
