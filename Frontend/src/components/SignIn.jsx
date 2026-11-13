@@ -152,15 +152,16 @@ function SignIn({ error, isSigningIn, onSignIn }) {
 
       {/* Top Navigation Bar */}
       <header className="sticky top-0 z-40 border-b border-white/[0.07] bg-[#07080a]/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex h-14 sm:h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Logo & Brand Identity */}
-          <div className="flex items-center gap-3">
-            <div className="relative grid size-9 place-items-center rounded-xl border border-accent-border bg-accent-soft text-accent shadow-sm shadow-accent/20">
-              <Orbit size={18} strokeWidth={2} />
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="relative grid size-8 sm:size-9 place-items-center rounded-xl border border-accent-border bg-accent-soft text-accent shadow-sm shadow-accent/20">
+              <Orbit size={16} className="sm:hidden" strokeWidth={2} />
+              <Orbit size={18} className="hidden sm:block" strokeWidth={2} />
               <span className="absolute -inset-1 -z-10 rounded-xl bg-accent/20 blur-md" />
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="font-display text-xl font-bold tracking-tight text-ink">
+              <span className="font-display text-lg sm:text-xl font-bold tracking-tight text-ink">
                 Orbit
               </span>
               <span className="hidden rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium tracking-wide text-muted sm:inline-block">
@@ -203,33 +204,33 @@ function SignIn({ error, isSigningIn, onSignIn }) {
         )}
       </AnimatePresence>
 
-      <main className="relative z-10 mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8 lg:py-16">
+      <main className="relative z-10 mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8 lg:py-16">
         {/* =========================================================================
             1. HERO SECTION: Positioning, Value Proposition & Immediate Auth CTA
             ========================================================================= */}
-        <section className="relative mx-auto grid max-w-7xl items-center gap-8 sm:gap-10 min-[900px]:grid-cols-12 min-[900px]:gap-8 lg:gap-12 xl:gap-16">
+        <section className="relative mx-auto grid max-w-7xl items-center gap-6 sm:gap-10 min-[900px]:grid-cols-12 min-[900px]:gap-8 lg:gap-12 xl:gap-16">
           {/* Left Column: Positioning, Value Proposition & Google Sign-In */}
-          <div className="flex flex-col items-center text-center min-[900px]:col-span-6 min-[900px]:items-start min-[900px]:text-left justify-center max-w-xl mx-auto min-[900px]:mx-0">
+          <div className="flex flex-col items-center text-center min-[900px]:col-span-6 min-[900px]:items-start min-[900px]:text-left justify-center max-w-xl mx-auto min-[900px]:mx-0 w-full min-w-0">
             {/* Eyebrow Pill */}
-            <div className="inline-flex items-center gap-2 rounded-full border border-accent-border/60 bg-accent-soft px-3.5 py-1.5 text-[10.5px] sm:text-[11px] font-semibold uppercase tracking-wider text-accent backdrop-blur-md shadow-sm shadow-accent/10">
+            <div className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-accent-border/60 bg-accent-soft px-3 sm:px-3.5 py-1 sm:py-1.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-accent backdrop-blur-md shadow-sm shadow-accent/10">
               <span className="size-1.5 rounded-full bg-accent shadow-sm shadow-accent" />
-              Autonomous Multi-Agent Workspace
+              <span>Autonomous Multi-Agent Workspace</span>
             </div>
 
-            {/* Core Positioning Headline - Responsive editorial scale */}
-            <h1 className="mt-4 sm:mt-5 font-display text-3xl font-semibold leading-[1.14] tracking-tight sm:text-4xl min-[900px]:text-[2.5rem] lg:text-[2.65rem] xl:text-[2.85rem] min-[900px]:leading-[1.12]">
+            {/* Core Positioning Headline - Responsive editorial scale with safe line-height */}
+            <h1 className="mt-3.5 sm:mt-5 font-display text-2xl sm:text-4xl min-[900px]:text-[2.5rem] lg:text-[2.65rem] xl:text-[2.85rem] font-semibold leading-[1.2] sm:leading-[1.14] min-[900px]:leading-[1.12] tracking-tight">
               <span className="block text-ink">One workspace.</span>
               <span className="block font-normal text-ink/55">Multiple AI capabilities.</span>
-              <span className="mt-1 block text-[#eabd58]">Built to create more.</span>
+              <span className="mt-0.5 sm:mt-1 block text-[#eabd58]">Built to create more.</span>
             </h1>
 
             {/* Subtitle */}
-            <p className="mt-3.5 sm:mt-4 max-w-[440px] text-xs sm:text-sm leading-relaxed text-muted sm:leading-[1.6]">
+            <p className="mt-3 sm:mt-4 max-w-[440px] text-xs sm:text-sm leading-relaxed text-muted sm:leading-[1.6]">
               Everything you need to explore ideas, build projects, and get things done in one place.
             </p>
 
             {/* Capability Pills (Compact, well-spaced within left column + 10s Progress Bar) */}
-            <div className="mt-5 sm:mt-6 flex flex-wrap items-center justify-center min-[900px]:justify-start gap-2 max-w-[430px]">
+            <div className="mt-4 sm:mt-6 flex flex-wrap items-center justify-center min-[900px]:justify-start gap-1.5 sm:gap-2 w-full max-w-[430px]">
               {[
                 { id: "coding", icon: Code2, label: "Coding" },
                 { id: "search", icon: Search, label: "Research" },
@@ -243,13 +244,13 @@ function SignIn({ error, isSigningIn, onSignIn }) {
                     key={label}
                     type="button"
                     onClick={() => handleHeroSelect(id)}
-                    className={`group relative overflow-hidden inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11.5px] font-medium shadow-sm backdrop-blur-sm transition-all duration-200 cursor-pointer ${
+                    className={`group relative overflow-hidden inline-flex items-center gap-1 sm:gap-1.5 rounded-full px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[10.5px] sm:text-[11.5px] font-medium shadow-sm backdrop-blur-sm transition-all duration-200 cursor-pointer ${
                       isActive
                         ? "border border-amber-400/90 bg-amber-400/15 text-white shadow-md shadow-amber-500/20 ring-1 ring-amber-400/40"
                         : "border border-white/10 bg-white/[0.04] text-white/70 hover:border-amber-400/40 hover:bg-white/[0.07] hover:text-white"
                     }`}
                   >
-                    <Icon size={13} className={isActive ? "text-[#eabd58]" : "text-[#eabd58]/80"} aria-hidden="true" />
+                    <Icon size={12} className={isActive ? "text-[#eabd58]" : "text-[#eabd58]/80"} aria-hidden="true" />
                     <span>{label}</span>
 
                     {/* Active Pill 10s Golden Progress Bar */}
@@ -270,7 +271,7 @@ function SignIn({ error, isSigningIn, onSignIn }) {
             </div>
 
             {/* Primary Authentication Action Area */}
-            <div className="mt-6 sm:mt-7 flex w-full max-w-md flex-col items-center min-[900px]:items-start gap-3">
+            <div className="mt-5 sm:mt-7 flex w-full max-w-md flex-col items-center min-[900px]:items-start gap-3">
               <div className="w-full max-w-[320px] sm:max-w-[360px]">
                 <AnimatePresence>
                   {error && (
@@ -294,54 +295,55 @@ function SignIn({ error, isSigningIn, onSignIn }) {
           </div>
 
           {/* Right Column: 3D Product Showcase Tablet (Interactive Multi-Experience Mode) */}
-          <div className="relative mx-auto w-full max-w-xl sm:max-w-2xl min-[900px]:col-span-6 min-[900px]:max-w-none flex flex-col items-center justify-center min-[900px]:items-end">
+          <div className="relative mx-auto w-full max-w-full sm:max-w-xl min-[900px]:col-span-6 min-[900px]:max-w-none flex flex-col items-center justify-center min-[900px]:items-end min-w-0 overflow-hidden sm:overflow-visible">
             {/* Ambient Warm Golden Haze in background */}
-            <div className="absolute -inset-10 -z-10 rounded-full bg-amber-500/15 blur-[130px]" />
-            <div className="absolute -right-8 top-1/4 -z-10 h-72 w-72 rounded-full bg-amber-600/10 blur-[100px]" />
+            <div className="absolute -inset-10 -z-10 rounded-full bg-amber-500/15 blur-[130px] pointer-events-none" />
+            <div className="hidden sm:block absolute -right-8 top-1/4 -z-10 h-72 w-72 rounded-full bg-amber-600/10 blur-[100px] pointer-events-none" />
 
             {/* 3D Scene Wrapper with Perspective & Auto-Cycle Pause on Hover */}
             <div
               onMouseEnter={() => setIsHeroHovered(true)}
               onMouseLeave={() => setIsHeroHovered(false)}
-              className="relative w-full max-w-[440px] sm:max-w-[500px] min-[900px]:max-w-[460px] lg:max-w-[500px] xl:max-w-[520px] py-3 sm:py-6 min-[900px]:py-8 [perspective:1400px]"
+              className="relative w-full max-w-full sm:max-w-[500px] min-[900px]:max-w-[460px] lg:max-w-[500px] xl:max-w-[520px] py-2 sm:py-6 min-[900px]:py-8 [perspective:1400px] min-w-0"
             >
               {/* Realistic Tablet Hardware Shell */}
               <div
-                className="relative z-10 overflow-hidden rounded-[1.8rem] sm:rounded-[2.4rem] border border-amber-500/30 bg-gradient-to-b from-[#22242e] via-[#12131a] to-[#090a0f] p-[6px] sm:p-[8px] shadow-[0_20px_50px_-15px_rgba(0,0,0,0.9),0_10px_35px_rgba(234,189,88,0.1)] sm:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.95),0_10px_40px_rgba(234,189,88,0.12)] transition-all duration-500 ease-out [transform:none] sm:[transform:rotateY(-6deg)_rotateX(3deg)] hover:sm:[transform:rotateY(-2deg)_rotateX(2deg)_translateY(-6px)] hover:shadow-[0_30px_70px_-10px_rgba(0,0,0,0.98),0_15px_50px_rgba(234,189,88,0.2)]"
+                className="relative z-10 w-full overflow-hidden rounded-[1.4rem] sm:rounded-[2.4rem] border border-amber-500/30 bg-gradient-to-b from-[#22242e] via-[#12131a] to-[#090a0f] p-[4px] sm:p-[8px] shadow-[0_15px_40px_-15px_rgba(0,0,0,0.9),0_10px_30px_rgba(234,189,88,0.08)] sm:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.95),0_10px_40px_rgba(234,189,88,0.12)] transition-all duration-500 ease-out [transform:none] sm:[transform:rotateY(-6deg)_rotateX(3deg)] hover:sm:[transform:rotateY(-2deg)_rotateX(2deg)_translateY(-6px)] hover:shadow-[0_30px_70px_-10px_rgba(0,0,0,0.98),0_15px_50px_rgba(234,189,88,0.2)]"
                 style={{
                   transformStyle: "preserve-3d",
                 }}
               >
                 {/* Specular Metallic Bezel Highlight */}
-                <div className="absolute inset-0 pointer-events-none rounded-[1.8rem] sm:rounded-[2.4rem] ring-1 ring-inset ring-white/[0.12]" />
+                <div className="absolute inset-0 pointer-events-none rounded-[1.4rem] sm:rounded-[2.4rem] ring-1 ring-inset ring-white/[0.12]" />
 
                 {/* Inner Screen Surface */}
-                <div className="relative overflow-hidden rounded-[1.4rem] sm:rounded-[1.9rem] bg-[#07080c] text-white">
+                <div className="relative w-full overflow-hidden rounded-[1.1rem] sm:rounded-[1.9rem] bg-[#07080c] text-white min-w-0">
                   {/* Top Bar with Orbit Logo + Live Workspace Indicator */}
-                  <div className="flex items-center justify-between border-b border-white/[0.06] bg-[#0c0d12] px-3.5 sm:px-5 py-2.5 sm:py-3.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="grid size-6 place-items-center rounded-lg border border-amber-400/30 bg-amber-400/10 text-accent">
-                        <Orbit size={13} strokeWidth={2.5} />
+                  <div className="flex items-center justify-between border-b border-white/[0.06] bg-[#0c0d12] px-2.5 sm:px-5 py-2 sm:py-3.5 min-w-0 gap-1.5">
+                    <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+                      <div className="grid size-5 sm:size-6 place-items-center rounded-lg border border-amber-400/30 bg-amber-400/10 text-accent">
+                        <Orbit size={11} className="sm:hidden" strokeWidth={2.5} />
+                        <Orbit size={13} className="hidden sm:block" strokeWidth={2.5} />
                       </div>
-                      <span className="font-display text-xs font-semibold text-white tracking-wide">Orbit</span>
+                      <span className="font-display text-[11px] sm:text-xs font-semibold text-white tracking-wide">Orbit</span>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                       <div className="hidden sm:flex items-center gap-1 rounded-full bg-white/[0.04] border border-white/10 px-2 py-0.5 text-[9px] text-white/50">
                         <span className="capitalize text-accent font-medium">{heroTabId}</span>
                         <span>mode</span>
                       </div>
-                      <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 sm:px-2.5 py-0.5 text-[8.5px] sm:text-[9px] font-semibold text-emerald-400 tracking-wider">
+                      <div className="flex items-center gap-1 sm:gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 sm:px-2.5 py-0.5 text-[8px] sm:text-[9px] font-semibold text-emerald-400 tracking-wider shrink-0">
                         <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        LIVE WORKSPACE
+                        <span>LIVE WORKSPACE</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Tablet Body: Left Clickable Icon Rail + Dynamic Multi-Experience Canvas */}
-                  <div className="flex min-h-[300px] sm:min-h-[350px]">
+                  <div className="flex min-h-[280px] sm:min-h-[350px] min-w-0 w-full">
                     {/* Minimalist Interactive Icon Sidebar */}
-                    <div className="flex flex-col items-center gap-3 sm:gap-3.5 border-r border-white/[0.06] bg-[#06070a] px-2.5 sm:px-3.5 py-3 sm:py-4">
+                    <div className="flex flex-col items-center gap-2.5 sm:gap-3.5 border-r border-white/[0.06] bg-[#06070a] px-1.5 sm:px-3.5 py-2.5 sm:py-4 shrink-0">
                       {[
                         { id: "home", icon: Home, label: "Home / Overview" },
                         { id: "coding", icon: MessageSquare, label: "Code & Build" },
@@ -372,43 +374,43 @@ function SignIn({ error, isSigningIn, onSignIn }) {
                     </div>
 
                     {/* Dynamic Main Showcase Canvas with Live Typing & Cascading AI Reveal */}
-                    <div className="flex flex-1 flex-col justify-between p-3.5 sm:p-5 gap-3 sm:gap-3.5">
+                    <div className="flex flex-1 flex-col justify-between p-2.5 sm:p-5 gap-2.5 sm:gap-3.5 min-w-0 overflow-hidden">
                       {(() => {
                         const currentScreen = HERO_SCREENS[heroTabId] || HERO_SCREENS.coding
                         return (
-                          <div className="flex flex-1 flex-col justify-between gap-3 sm:gap-3.5">
+                          <div className="flex flex-1 flex-col justify-between gap-2.5 sm:gap-3.5 min-w-0">
                             {/* Top: User Prompt Bubble with Live Typing Cursor */}
-                            <div className="flex items-center justify-end gap-2.5 min-h-[30px] sm:min-h-[32px]">
-                              <div className="rounded-full border border-white/10 bg-white/[0.05] px-3 sm:px-4 py-1 sm:py-1.5 text-[10.5px] sm:text-[11px] text-white/90 shadow-sm font-medium line-clamp-1 max-w-[85%] flex items-center">
-                                <span>{typedPrompt || "\u00A0"}</span>
+                            <div className="flex items-center justify-end gap-1.5 sm:gap-2.5 min-h-[28px] sm:min-h-[32px] min-w-0">
+                              <div className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 sm:px-4 py-1 sm:py-1.5 text-[9.5px] sm:text-[11px] text-white/90 shadow-sm font-medium line-clamp-1 max-w-[85%] flex items-center min-w-0 overflow-hidden">
+                                <span className="truncate">{typedPrompt || "\u00A0"}</span>
                                 {tabletPhase === "typing" && (
-                                  <span className="ml-1 inline-block h-3 w-1 rounded-sm bg-amber-400 animate-pulse" />
+                                  <span className="ml-1 inline-block h-3 w-1 shrink-0 rounded-sm bg-amber-400 animate-pulse" />
                                 )}
                               </div>
-                              <div className="grid size-5 sm:size-6 shrink-0 place-items-center rounded-full border border-amber-400/40 bg-amber-400/20 text-[9.5px] sm:text-[10px] font-bold text-[#eabd58]">
+                              <div className="grid size-5 sm:size-6 shrink-0 place-items-center rounded-full border border-amber-400/40 bg-amber-400/20 text-[9px] sm:text-[10px] font-bold text-[#eabd58]">
                                 U
                               </div>
                             </div>
 
                             {/* Middle: AI Response Indicator with 3-Phase State */}
-                            <div className="flex items-center gap-2 pt-0.5 text-[10.5px] sm:text-[11px] min-h-[22px] sm:min-h-[24px]">
+                            <div className="flex items-center gap-1.5 sm:gap-2 pt-0.5 text-[9.5px] sm:text-[11px] min-h-[20px] sm:min-h-[24px] min-w-0 overflow-hidden">
                               {tabletPhase === "typing" ? (
-                                <div className="flex items-center gap-2 text-white/40">
+                                <div className="flex items-center gap-1.5 sm:gap-2 text-white/40 min-w-0 truncate">
                                   <div className="grid size-4 sm:size-5 shrink-0 place-items-center rounded-full border border-white/10 bg-white/5 text-white/30">
                                     <Orbit size={10} className="sm:hidden" />
                                     <Orbit size={11} className="hidden sm:block" />
                                   </div>
-                                  <span className="font-mono text-[9.5px] sm:text-[10px] text-white/40">Listening for user prompt...</span>
+                                  <span className="font-mono text-[9px] sm:text-[10px] text-white/40 truncate">Listening for user prompt...</span>
                                 </div>
                               ) : tabletPhase === "thinking" ? (
-                                <div className="flex items-center gap-2 text-amber-300">
+                                <div className="flex items-center gap-1.5 sm:gap-2 text-amber-300 min-w-0 truncate">
                                   <div className="grid size-4 sm:size-5 shrink-0 place-items-center rounded-full border border-amber-400/40 bg-amber-400/20 text-accent shadow-sm shadow-amber-400/30">
                                     <Sparkles size={10} className="sm:hidden animate-spin" style={{ animationDuration: "2s" }} />
                                     <Sparkles size={11} className="hidden sm:block animate-spin" style={{ animationDuration: "2s" }} />
                                   </div>
-                                  <span className="font-mono text-[10px] sm:text-[10.5px] text-amber-300 flex items-center gap-1.5">
-                                    <span>Routing to {currentScreen.label} Agent</span>
-                                    <span className="inline-flex gap-0.5">
+                                  <span className="font-mono text-[9.5px] sm:text-[10.5px] text-amber-300 flex items-center gap-1 sm:gap-1.5 truncate">
+                                    <span className="truncate">Routing to {currentScreen.label} Agent</span>
+                                    <span className="inline-flex gap-0.5 shrink-0">
                                       <span className="size-1 rounded-full bg-amber-400 animate-bounce" style={{ animationDelay: "0ms" }} />
                                       <span className="size-1 rounded-full bg-amber-400 animate-bounce" style={{ animationDelay: "150ms" }} />
                                       <span className="size-1 rounded-full bg-amber-400 animate-bounce" style={{ animationDelay: "300ms" }} />
@@ -420,13 +422,13 @@ function SignIn({ error, isSigningIn, onSignIn }) {
                                   initial={{ opacity: 0, y: 3 }}
                                   animate={{ opacity: 1, y: 0 }}
                                   transition={{ duration: 0.2 }}
-                                  className="flex items-center gap-2 text-white/70"
+                                  className="flex items-center gap-1.5 sm:gap-2 text-white/70 min-w-0 truncate"
                                 >
                                   <div className="grid size-4 sm:size-5 shrink-0 place-items-center rounded-full border border-amber-400/30 bg-amber-400/15 text-accent shadow-sm shadow-amber-400/20">
                                     <Orbit size={10} className="sm:hidden" />
                                     <Orbit size={11} className="hidden sm:block" />
                                   </div>
-                                  <span className="font-medium text-white/85 line-clamp-1">
+                                  <span className="font-medium text-white/85 truncate">
                                     {currentScreen.assistantLabel}
                                   </span>
                                 </motion.div>
@@ -442,29 +444,29 @@ function SignIn({ error, isSigningIn, onSignIn }) {
                                   animate={{ opacity: 1, y: 0, scale: 1 }}
                                   exit={reduceMotion ? false : { opacity: 0, y: -6 }}
                                   transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                                  className="rounded-xl sm:rounded-2xl border border-white/[0.09] bg-[#0c0d12]/95 p-3.5 sm:p-4 shadow-xl flex flex-col justify-between min-h-[150px] sm:min-h-[160px]"
+                                  className="rounded-xl sm:rounded-2xl border border-white/[0.09] bg-[#0c0d12]/95 p-2.5 sm:p-4 shadow-xl flex flex-col justify-between min-h-[140px] sm:min-h-[160px] min-w-0 overflow-hidden"
                                 >
                                   {/* Artifact Card Header */}
-                                  <div className="flex items-center justify-between pb-2.5 border-b border-white/[0.05]">
-                                    <div className="flex items-center gap-2">
-                                      <span className="size-2 rounded-full bg-[#eabd58] shadow-sm shadow-amber-400/80" />
-                                      <span className="font-mono text-xs font-semibold text-white/90 tracking-wide line-clamp-1">
+                                  <div className="flex items-center justify-between pb-2 border-b border-white/[0.05] min-w-0 gap-1.5">
+                                    <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+                                      <span className="size-1.5 sm:size-2 rounded-full bg-[#eabd58] shadow-sm shadow-amber-400/80 shrink-0" />
+                                      <span className="font-mono text-[10.5px] sm:text-xs font-semibold text-white/90 tracking-wide truncate">
                                         {currentScreen.cardTitle}
                                       </span>
                                     </div>
-                                    <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-400">
-                                      <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                      {currentScreen.cardBadge}
+                                    <div className="inline-flex items-center gap-1 sm:gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 sm:px-2.5 py-0.5 text-[9px] sm:text-[10px] font-semibold text-emerald-400 shrink-0">
+                                      <span className="size-1 sm:size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                      <span>{currentScreen.cardBadge}</span>
                                     </div>
                                   </div>
 
                                   {/* Dynamic Center Content per Capability */}
-                                  <div className="py-2.5 flex-1 flex flex-col justify-center">
+                                  <div className="py-2 flex-1 flex flex-col justify-center min-w-0 overflow-hidden">
                                     {/* 1. Coding: Golden Wave Chart */}
                                     {currentScreen.type === "chart" && (
                                       <svg
                                         className="w-full overflow-visible"
-                                        height="52"
+                                        height="48"
                                         viewBox="0 0 260 52"
                                         preserveAspectRatio="none"
                                         aria-hidden="true"
@@ -492,19 +494,19 @@ function SignIn({ error, isSigningIn, onSignIn }) {
 
                                     {/* 2. Research: Citations + Synthesis */}
                                     {currentScreen.type === "search" && (
-                                      <div className="space-y-2">
-                                        <div className="flex flex-wrap gap-1.5">
+                                      <div className="space-y-1.5 sm:space-y-2 min-w-0">
+                                        <div className="flex flex-wrap gap-1 sm:gap-1.5">
                                           {currentScreen.sources.map((src, i) => (
                                             <span
                                               key={i}
-                                              className="inline-flex items-center gap-1 rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[9.5px] font-mono text-accent"
+                                              className="inline-flex items-center gap-1 rounded border border-white/10 bg-white/5 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[9.5px] font-mono text-accent truncate max-w-full"
                                             >
-                                              <ExternalLink size={9} />
-                                              {src}
+                                              <ExternalLink size={8} className="shrink-0" />
+                                              <span className="truncate">{src}</span>
                                             </span>
                                           ))}
                                         </div>
-                                        <p className="text-[10.5px] text-white/80 leading-snug rounded-lg border border-white/[0.06] bg-white/[0.02] p-2">
+                                        <p className="text-[9.5px] sm:text-[10.5px] text-white/80 leading-snug rounded-lg border border-white/[0.06] bg-white/[0.02] p-1.5 sm:p-2 line-clamp-2">
                                           &ldquo;{currentScreen.summary}&rdquo;
                                         </p>
                                       </div>
@@ -512,43 +514,43 @@ function SignIn({ error, isSigningIn, onSignIn }) {
 
                                     {/* 3. Documents: PDF Cheat Sheet */}
                                     {currentScreen.type === "pdf" && (
-                                      <div className="space-y-1.5">
-                                        <div className="grid grid-cols-3 gap-1.5">
+                                      <div className="space-y-1.5 min-w-0">
+                                        <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
                                           {currentScreen.sections.map((sec, i) => (
                                             <div
                                               key={i}
-                                              className="rounded-lg border border-white/10 bg-white/5 p-1.5 text-center"
+                                              className="rounded-lg border border-white/10 bg-white/5 p-1 sm:p-1.5 text-center min-w-0 overflow-hidden"
                                             >
-                                              <span className="block text-[8px] font-mono text-accent">SEC 0{i + 1}</span>
-                                              <span className="block text-[9.5px] font-medium text-white/90 truncate">
+                                              <span className="block text-[7.5px] sm:text-[8px] font-mono text-accent">SEC 0{i + 1}</span>
+                                              <span className="block text-[8.5px] sm:text-[9.5px] font-medium text-white/90 truncate">
                                                 {sec.replace(/^\d+\.\s*/, "")}
                                               </span>
                                             </div>
                                           ))}
                                         </div>
-                                        <div className="text-[9.5px] text-amber-200/90 flex items-center justify-between pt-1">
-                                          <span className="flex items-center gap-1">
-                                            <CheckCircle2 size={10} className="text-accent" />
-                                            Cheat sheet generated
+                                        <div className="text-[9px] sm:text-[9.5px] text-amber-200/90 flex items-center justify-between pt-0.5 sm:pt-1">
+                                          <span className="flex items-center gap-1 truncate">
+                                            <CheckCircle2 size={10} className="text-accent shrink-0" />
+                                            <span className="truncate">Cheat sheet generated</span>
                                           </span>
-                                          <span className="text-[9px] text-white/40">Ready to export</span>
+                                          <span className="text-[8.5px] sm:text-[9px] text-white/40 shrink-0">Ready to export</span>
                                         </div>
                                       </div>
                                     )}
 
                                     {/* 4. Presentations: Slide Viewer */}
                                     {currentScreen.type === "ppt" && (
-                                      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-2.5">
-                                        <div className="flex items-center justify-between pb-1">
-                                          <span className="text-[10px] font-semibold text-white/90">
+                                      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-2 sm:p-2.5 min-w-0 overflow-hidden">
+                                        <div className="flex items-center justify-between pb-1 min-w-0 gap-1.5">
+                                          <span className="text-[9.5px] sm:text-[10px] font-semibold text-white/90 truncate">
                                             {currentScreen.slideTitle}
                                           </span>
-                                          <span className="text-[8.5px] font-mono text-accent">SLIDE 02</span>
+                                          <span className="text-[8px] sm:text-[8.5px] font-mono text-accent shrink-0">SLIDE 02</span>
                                         </div>
-                                        <ul className="space-y-1 text-[9.5px] text-white/70">
+                                        <ul className="space-y-0.5 sm:space-y-1 text-[8.5px] sm:text-[9.5px] text-white/70 min-w-0">
                                           {currentScreen.bullets.map((b, i) => (
                                             <li key={i} className="truncate">
-                                              {b}
+                                              • {b}
                                             </li>
                                           ))}
                                         </ul>
@@ -557,7 +559,7 @@ function SignIn({ error, isSigningIn, onSignIn }) {
 
                                     {/* 5. Vision: OCR Topology Terminal */}
                                     {currentScreen.type === "vision" && (
-                                      <div className="rounded-xl border border-white/10 bg-[#06070a] p-2.5 font-mono text-[9.5px] space-y-1">
+                                      <div className="rounded-xl border border-white/10 bg-[#06070a] p-2 sm:p-2.5 font-mono text-[8.5px] sm:text-[9.5px] space-y-1 min-w-0 overflow-hidden">
                                         <p className="text-accent truncate">&gt; {currentScreen.detected}</p>
                                         <p className="text-emerald-400 truncate">&gt; {currentScreen.status}</p>
                                       </div>
@@ -565,13 +567,13 @@ function SignIn({ error, isSigningIn, onSignIn }) {
                                   </div>
 
                                   {/* Artifact Card Footer: Equalizer or Tool Indicator + Metric */}
-                                  <div className="flex items-end justify-between pt-2 border-t border-white/[0.06]">
+                                  <div className="flex items-end justify-between pt-1.5 sm:pt-2 border-t border-white/[0.06] min-w-0 gap-2">
                                     {currentScreen.type === "chart" ? (
-                                      <div className="flex items-end gap-1 h-5">
+                                      <div className="flex items-end gap-1 h-4 sm:h-5">
                                         {[25, 45, 38, 62, 50, 95, 80].map((h, i) => (
                                           <div
                                             key={i}
-                                            className="w-1.5 rounded-t-sm"
+                                            className="w-1 sm:w-1.5 rounded-t-sm"
                                             style={{
                                               height: `${h}%`,
                                               background: i >= 5 ? "#eabd58" : "rgba(234, 189, 88, 0.4)",
@@ -580,16 +582,16 @@ function SignIn({ error, isSigningIn, onSignIn }) {
                                         ))}
                                       </div>
                                     ) : (
-                                      <span className="text-[10px] font-mono text-white/40 flex items-center gap-1.5">
-                                        <span className="size-1 rounded-full bg-accent" />
-                                        Live Orchestrated Artifact
+                                      <span className="text-[9px] sm:text-[10px] font-mono text-white/40 flex items-center gap-1 sm:gap-1.5 min-w-0 truncate">
+                                        <span className="size-1 rounded-full bg-accent shrink-0" />
+                                        <span className="truncate">Live Orchestrated Artifact</span>
                                       </span>
                                     )}
-                                    <div className="text-right">
-                                      <div className="font-mono text-xs font-bold text-[#eabd58] leading-none">
+                                    <div className="text-right shrink-0">
+                                      <div className="font-mono text-[11px] sm:text-xs font-bold text-[#eabd58] leading-none">
                                         {currentScreen.metricValue}
                                       </div>
-                                      <div className="text-[8.5px] text-white/40 pt-0.5 tracking-wider uppercase font-medium">
+                                      <div className="text-[8px] sm:text-[8.5px] text-white/40 pt-0.5 tracking-wider uppercase font-medium">
                                         {currentScreen.metricLabel}
                                       </div>
                                     </div>
@@ -602,22 +604,22 @@ function SignIn({ error, isSigningIn, onSignIn }) {
                                   animate={{ opacity: 1 }}
                                   exit={{ opacity: 0 }}
                                   transition={{ duration: 0.15 }}
-                                  className="rounded-2xl border border-white/[0.05] bg-[#0c0d12]/60 p-4 shadow-xl flex flex-col justify-between min-h-[160px] relative overflow-hidden backdrop-blur-sm"
+                                  className="rounded-xl sm:rounded-2xl border border-white/[0.05] bg-[#0c0d12]/60 p-2.5 sm:p-4 shadow-xl flex flex-col justify-between min-h-[140px] sm:min-h-[160px] relative overflow-hidden backdrop-blur-sm min-w-0"
                                 >
-                                  <div className="flex items-center justify-between pb-2.5 border-b border-white/[0.04]">
+                                  <div className="flex items-center justify-between pb-2 border-b border-white/[0.04] min-w-0">
                                     <div className="flex items-center gap-2">
                                       <span className="size-2 rounded-full bg-white/20 animate-pulse" />
-                                      <div className="h-3 w-28 rounded bg-white/[0.07] animate-pulse" />
+                                      <div className="h-3 w-20 sm:w-28 rounded bg-white/[0.07] animate-pulse" />
                                     </div>
-                                    <div className="h-4 w-20 rounded-full bg-white/[0.05] animate-pulse" />
+                                    <div className="h-4 w-16 sm:w-20 rounded-full bg-white/[0.05] animate-pulse" />
                                   </div>
-                                  <div className="space-y-2 py-4">
+                                  <div className="space-y-2 py-3 sm:py-4">
                                     <div className="h-2.5 w-3/4 rounded bg-white/[0.05] animate-pulse" />
                                     <div className="h-2.5 w-1/2 rounded bg-white/[0.04] animate-pulse" />
                                   </div>
                                   <div className="flex items-center justify-between pt-1">
-                                    <div className="h-2 w-24 rounded bg-white/[0.04]" />
-                                    <div className="h-2 w-14 rounded bg-white/[0.04]" />
+                                    <div className="h-2 w-20 sm:w-24 rounded bg-white/[0.04]" />
+                                    <div className="h-2 w-12 sm:w-14 rounded bg-white/[0.04]" />
                                   </div>
                                 </motion.div>
                               )}
@@ -633,7 +635,7 @@ function SignIn({ error, isSigningIn, onSignIn }) {
               {/* Apple-Style Stage Pedestal Floor Glow */}
               <div
                 aria-hidden="true"
-                className="pointer-events-none h-4 w-3/4 mx-auto bg-gradient-to-b from-amber-400/10 via-amber-500/5 to-transparent blur-md -mt-1 opacity-70 rounded-full"
+                className="pointer-events-none h-3 sm:h-4 w-3/4 mx-auto bg-gradient-to-b from-amber-400/10 via-amber-500/5 to-transparent blur-md -mt-1 opacity-70 rounded-full"
               />
             </div>
           </div>
