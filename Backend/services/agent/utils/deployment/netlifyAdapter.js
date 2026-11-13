@@ -133,6 +133,15 @@ export function prepareProjectFilesForDeployment(files = []) {
 
     indexFile.content = htmlContent;
 
+    // Ensure Netlify _redirects file exists so client-side SPA routing survives page refreshes
+    const hasRedirects = strippedFiles.some((f) => f.path.toLowerCase() === "_redirects");
+    if (!hasRedirects) {
+        strippedFiles.push({
+            path: "_redirects",
+            content: "/*    /index.html   200\n",
+        });
+    }
+
     return strippedFiles;
 }
 
@@ -245,7 +254,7 @@ export async function inspectDeployManifest(deployId, token, expectedFiles = [])
         const missingFiles = [];
         for (const file of expectedFiles) {
             const cleanPath = file.path.toLowerCase();
-            if (cleanPath === "index.html" || cleanPath === "/index.html") continue;
+            if (cleanPath === "index.html" || cleanPath === "/index.html" || cleanPath === "_redirects") continue;
             if (!deployedPaths.has(cleanPath)) {
                 missingFiles.push(file.path);
             }

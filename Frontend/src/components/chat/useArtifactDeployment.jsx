@@ -42,8 +42,13 @@ export function useArtifactDeployment(artifact, conversationId, messageId) {
       }
     } catch (err) {
       console.error("Deploy trigger failed:", err)
+      const serverError =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message ||
+        "An error occurred while connecting to deployment service."
       setDeploymentState((prev) => ({ ...prev, status: "failed" }))
-      setDeployNotice("An error occurred while connecting to deployment service.")
+      setDeployNotice(serverError)
     } finally {
       setIsDeploying(false)
     }

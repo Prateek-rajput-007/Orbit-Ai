@@ -1,6 +1,7 @@
 import { deployToNetlify } from "./netlifyAdapter.js";
 import { deployToVercel } from "./vercelAdapter.js";
-import { sanitizePath } from "../codeArtifact.js";
+import { sanitizePath, isReactProject } from "../codeArtifact.js";
+import { buildReactProjectToStatic } from "./reactBuildService.js";
 
 /**
  * Validates files and project security before initiating deployment.
@@ -30,8 +31,8 @@ export function validateDeploymentPayload(files = []) {
         });
     }
 
-    if (totalSize > 10 * 1024 * 1024) {
-        throw new Error("Total project size exceeds maximum deployment limit of 10 MB.");
+    if (totalSize > 15 * 1024 * 1024) {
+        throw new Error("Total project size exceeds maximum deployment limit of 15 MB.");
     }
 
     if (!sanitizedFiles.some((f) => f.path.toLowerCase().endsWith(".html"))) {
@@ -72,6 +73,9 @@ export function validateDeploymentPayload(files = []) {
 
 /**
  * Deploys a project using the configured cloud hosting provider.
+ * If the project is a React application, it is automatically compiled
+ * into production-ready static assets before deploying to static cloud hosting.
+ * Legacy HTML/CSS/JS projects continue to deploy directly without modification.
  *
  * @param {object} params
  * @param {Array<{ path: string, content: string }>} params.files
@@ -80,8 +84,29 @@ export function validateDeploymentPayload(files = []) {
  * @returns {Promise<object>} Deployment result
  */
 export async function deployArtifactProject({ files = [], title = "orbit-project", provider = null }) {
-    const validatedFiles = validateDeploymentPayload(files);
     const chosenProvider = (provider || process.env.DEPLOYMENT_PROVIDER || "netlify").toLowerCase();
+    const isReact = isReactProject(files);
+
+    let filesToDeploy = files;
+
+    // React projects must be compiled into production static assets
+    if (isReact) {
+        const buildResult = await buildReactProjectToStatic(files, { title });
+
+        if (!buildResult.success) {
+            return {
+                success: false,
+                status: "build_failed",
+                provider: chosenProvider === "vercel" ? "Vercel" : "Netlify",
+                error: buildResult.error || "Failed to build React application for production.",
+                buildLogs: buildResult.logs,
+            };
+        }
+
+        filesToDeploy = buildResult.files;
+    }
+
+    const validatedFiles = validateDeploymentPayload(filesToDeploy);
 
     if (chosenProvider === "vercel") {
         return await deployToVercel({ files: validatedFiles, title });
