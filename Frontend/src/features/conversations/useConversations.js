@@ -132,97 +132,121 @@ export function useConversations(user) {
 
       setStreamingConversationId(conversationId)
 
-      if (!attachment) {
-        try {
-          setGeneratingStage("Connecting to Orbit agent...")
-          setStreamingText("")
-          const serverUrl = api.defaults.baseURL || import.meta.env.VITE_SERVER_URL || import.meta.env.VITE_API_URL || ""
-          const response = await fetch(`${serverUrl}/api/agent/chat`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Accept": "text/event-stream",
-              ...(clientRequestId ? {
-                "x-request-id": clientRequestId,
-                "Idempotency-Key": clientRequestId,
-              } : {}),
-            },
-            credentials: "include",
-            signal: abortController.signal,
-            body: JSON.stringify({
-              prompt,
-              conversationId,
-              agentMode,
-              clientRequestId,
-              projectId: projectId || undefined,
-              baseVersion: baseVersion || undefined,
-            }),
-          })
+      try {
+        const isPdfAttachment = Boolean(
+          attachment &&
+          (attachment.type === "application/pdf" || attachment.name?.toLowerCase().endsWith(".pdf"))
+        )
+        const isImageAttachment = Boolean(
+          attachment &&
+          (attachment.type?.startsWith("image/") || /\.(jpe?g|png|webp)$/i.test(attachment.name || ""))
+        )
 
-          if (!response.ok) {
-            const errJson = await response.json().catch(() => null)
-            const retryAfter = response.headers.get("retry-after")
-            let errMsg = errJson?.message || errJson?.error || `Request failed with status ${response.status}`
-            if ((response.status === 429 || response.status === 503) && retryAfter && !errMsg.toLowerCase().includes("wait")) {
-              errMsg = `${errMsg} (Wait ${retryAfter}s)`
-            }
-            const err = new Error(errMsg)
-            err.status = response.status
-            err.retryAfter = retryAfter
-            throw err
-          }
-
-          data = await readAgentEventStream(response, {
-            onToken: (token) => {
-              if (!turnDiagnostics.current.tFirstToken) {
-                turnDiagnostics.current.tFirstToken = performance.now()
-              }
-              accumulatedTokens += token
-              setStreamingText(accumulatedTokens)
-            },
-            onStage: (message) => {
-              if (!turnDiagnostics.current.tFirstStage) {
-                turnDiagnostics.current.tFirstStage = performance.now()
-              }
-              setGeneratingStage(message)
-            },
-            onReady: () => {
-              turnDiagnostics.current.tFinalReady = performance.now()
-            },
-          })
-          if (data && !turnDiagnostics.current.tFinalReady) {
-            turnDiagnostics.current.tFinalReady = performance.now()
-          }
-        } catch (streamErr) {
-          if (abortController.signal.aborted || streamErr.name === "AbortError") {
-            throw new Error("Request was cancelled.", { cause: streamErr })
-          }
-          // Do NOT blindly repeat an expensive request when its status is unknown or connection drops
-          throw streamErr
-        } finally {
-          activeAbortController.current = null
+        let initialStage = "Connecting to Orbit agent..."
+        if (isPdfAttachment) {
+          initialStage = "Reading and analyzing PDF document..."
+        } else if (isImageAttachment) {
+          initialStage = "Inspecting attached image..."
+        } else if (agentMode === "pdf") {
+          initialStage = "Preparing PDF document workspace..."
+        } else if (agentMode === "coding") {
+          initialStage = "Synthesizing code architecture..."
+        } else if (agentMode === "search") {
+          initialStage = "Searching the live web..."
+        } else if (agentMode === "ppt") {
+          initialStage = "Structuring presentation outline..."
+        } else if (agentMode === "vision") {
+          initialStage = "Analyzing visual input..."
         }
-      } else {
-        const payload = new FormData()
-        payload.append("prompt", prompt)
-        payload.append("conversationId", conversationId)
-        payload.append("agentMode", agentMode)
-        payload.append("attachment", attachment)
-        if (clientRequestId) payload.append("clientRequestId", clientRequestId)
-        if (projectId) payload.append("projectId", projectId)
-        if (baseVersion) payload.append("baseVersion", String(baseVersion))
-        const res = await api.post("/api/agent/chat", payload, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-            ...(clientRequestId ? {
-              "x-request-id": clientRequestId,
-              "Idempotency-Key": clientRequestId,
-            } : {}),
-          },
+
+        setGeneratingStage(initialStage)
+        setStreamingText("")
+
+        const serverUrl = api.defaults.baseURL || import.meta.env.VITE_SERVER_URL || import.meta.env.VITE_API_URL || ""
+        const headers = {
+          "Accept": "text/event-stream",
+          ...(clientRequestId ? {
+            "x-request-id": clientRequestId,
+            "Idempotency-Key": clientRequestId,
+          } : {}),
+        }
+
+        let requestBody = null
+        if (!attachment) {
+          headers["Content-Type"] = "application/json"
+          requestBody = JSON.stringify({
+            prompt,
+            conversationId,
+            agentMode,
+            clientRequestId,
+            projectId: projectId || undefined,
+            baseVersion: baseVersion || undefined,
+          })
+        } else {
+          const payload = new FormData()
+          payload.append("prompt", prompt)
+          payload.append("conversationId", conversationId)
+          payload.append("agentMode", agentMode)
+          payload.append("attachment", attachment)
+          if (clientRequestId) payload.append("clientRequestId", clientRequestId)
+          if (projectId) payload.append("projectId", projectId)
+          if (baseVersion) payload.append("baseVersion", String(baseVersion))
+          requestBody = payload
+        }
+
+        const response = await fetch(`${serverUrl}/api/agent/chat`, {
+          method: "POST",
+          headers,
+          credentials: "include",
           signal: abortController.signal,
+          body: requestBody,
         })
-        turnDiagnostics.current.tFinalReady = performance.now()
-        data = res.data
+
+        if (!response.ok) {
+          const errJson = await response.json().catch(() => null)
+          const retryAfter = response.headers.get("retry-after")
+          let errMsg = errJson?.message || errJson?.error || `Request failed with status ${response.status}`
+          if ((response.status === 429 || response.status === 503) && retryAfter && !errMsg.toLowerCase().includes("wait")) {
+            errMsg = `${errMsg} (Wait ${retryAfter}s)`
+          }
+          const err = new Error(errMsg)
+          err.status = response.status
+          err.retryAfter = retryAfter
+          throw err
+        }
+
+        data = await readAgentEventStream(response, {
+          onToken: (token) => {
+            if (!turnDiagnostics.current.tFirstToken) {
+              turnDiagnostics.current.tFirstToken = performance.now()
+            }
+            accumulatedTokens += token
+            setStreamingText(accumulatedTokens)
+          },
+          onStage: (message) => {
+            if (!turnDiagnostics.current.tFirstStage) {
+              turnDiagnostics.current.tFirstStage = performance.now()
+            }
+            setGeneratingStage(message)
+          },
+          onReady: () => {
+            turnDiagnostics.current.tFinalReady = performance.now()
+          },
+        })
+        if (data && !turnDiagnostics.current.tFinalReady) {
+          turnDiagnostics.current.tFinalReady = performance.now()
+        }
+      } catch (streamErr) {
+        if (abortController.signal.aborted || streamErr.name === "AbortError") {
+          const cancelErr = new Error("Request was cancelled.", { cause: streamErr })
+          cancelErr.name = "AbortError"
+          cancelErr.partialContent = accumulatedTokens
+          throw cancelErr
+        }
+        // Do NOT blindly repeat an expensive request when its status is unknown or connection drops
+        throw streamErr
+      } finally {
+        activeAbortController.current = null
       }
 
       // Recovery check: if the stream closed without a ready payload, check if backend already persisted turn in DB
@@ -381,14 +405,31 @@ export function useConversations(user) {
         error?.message?.includes("cancelled")
 
       if (isAborted) {
+        const partial = (error?.partialContent || "").trim()
+        const stoppedText = partial
+          ? `${partial}\n\n*(Generation stopped by user)*`
+          : "Generation stopped by user."
+
+        const stoppedAssistantId = `stopped-${Date.now()}`
+
         if (context?.convMessagesKey) {
-          queryClient.setQueryData(context.convMessagesKey, (current = []) =>
-            current.map((msg) =>
+          queryClient.setQueryData(context.convMessagesKey, (current = []) => {
+            const updated = current.map((msg) =>
               msg.id === variables.userMessageId
                 ? { ...msg, status: "sent" }
                 : msg
             )
-          )
+            return [
+              ...updated,
+              {
+                id: stoppedAssistantId,
+                role: "assistant",
+                content: stoppedText,
+                stoppedByUser: true,
+                createdAt: new Date().toISOString(),
+              },
+            ]
+          })
         }
         return
       }

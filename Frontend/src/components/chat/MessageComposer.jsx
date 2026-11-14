@@ -126,9 +126,9 @@ function MessageComposer({
 
   const placeholderText =
     agentMode === "pdf" && !attachment
-      ? "Ask a question about a PDF or click 📎 to attach one..."
+      ? "Ask a question about a PDF, or attach a document..."
       : agentMode === "vision" && !attachment
-        ? "Ask a question about an image or click 📎 to attach one..."
+        ? "Ask a question about an image, or attach a file..."
         : "Ask a question, write code, or create something..."
 
   return (

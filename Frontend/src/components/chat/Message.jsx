@@ -128,11 +128,9 @@ function Message({ message, onActionClick, onOpenArtifact }) {
                   />
                 ))}
               </div>
-              {message.generatingStage && (
-                <span className="text-[11px] text-muted font-mono">
-                  {message.generatingStage}
-                </span>
-              )}
+              <span className="text-[11px] text-muted font-mono">
+                {message.generatingStage || "Connecting to Orbit agent..."}
+              </span>
             </div>
           ) : (
             <>
@@ -293,6 +291,13 @@ function Message({ message, onActionClick, onOpenArtifact }) {
                 </div>
               )}
             </>
+          )}
+
+          {message.stoppedByUser && (
+            <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-amber-400/20 bg-amber-400/[0.06] px-2.5 py-0.5 text-[11px] text-amber-200/90 font-mono">
+              <span className="size-1.5 rounded-full bg-amber-400" />
+              <span>Generation stopped</span>
+            </div>
           )}
 
           {!isUser && !message.isStreaming && message.content && (
