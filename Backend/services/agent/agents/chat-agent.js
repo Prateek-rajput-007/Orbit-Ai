@@ -11,7 +11,8 @@ export const chatAgent = async (state = {}) => {
 
     const systemPrompt = `You are a helpful AI assistant.
 
-Answer the user's request clearly, concisely, and usefully.
+Answer the user's request clearly, thoroughly, and usefully.
+When explaining concepts, exploring topics, or building roadmaps, deliver complete, well-structured sections and actionable conclusions. Never leave thoughts, code snippets, or sections abruptly unfinished.
 Be friendly, professional, and practical.
 If the request is ambiguous, ask a clarifying question.
 If you are not sure, say so honestly.

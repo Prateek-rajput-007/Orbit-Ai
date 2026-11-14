@@ -103,11 +103,25 @@ const codingModel = (codingProvider === "gemini")
 codingModel.model = (codingProvider === "gemini") ? geminiPrimary.model : groqCodingModelName;
 codingModel.provider = codingProvider;
 
-// High-speed, Low-latency Groq Model for Chat & Search (bounded maxTokens & fail-fast retries)
+// Dedicated fast bounded Router Model (only needs ~10-50 tokens for single-word agent routing)
+const routerModel = new ChatGroq({
+    model: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
+    temperature: 0,
+    maxTokens: 256,
+    maxRetries: 0,
+    apiKey: groqApiKey,
+});
+routerModel.provider = "groq";
+
+// High-speed, Full-Capacity Groq & Gemini Models for Chat & Search
+// Configurable output token ceiling: defaults to 8192 tokens so comprehensive roadmaps,
+// in-depth guides, tables, and long-form responses never truncate mid-generation.
+const chatMaxTokens = process.env.CHAT_MAX_TOKENS ? parseInt(process.env.CHAT_MAX_TOKENS, 10) : 8192;
+
 const groqFast = new ChatGroq({
     model: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
     temperature: 0,
-    maxTokens: 1024,
+    maxTokens: chatMaxTokens,
     maxRetries: 0, // Fail fast on rate limits (429) or timeouts so fallback triggers without 11s stall
     apiKey: groqApiKey,
 });
@@ -116,7 +130,7 @@ groqFast.provider = "groq";
 const geminiFastFallback = new ChatGoogleGenerativeAI({
     model: process.env.GEMINI_MODEL || "gemini-3.5-flash",
     temperature: 0,
-    maxTokens: 1024,
+    maxTokens: chatMaxTokens,
     maxRetries: 1,
     apiKey: googleApiKey,
 });
@@ -134,7 +148,7 @@ searchModel.provider = "groq";
 export const getModel = (agent) => {
     switch (agent) {
         case "router":
-            return groqFast;
+            return routerModel;
         case "chat":
             return groqFast;
         case "chat_fallback":
@@ -162,4 +176,4 @@ export const getModel = (agent) => {
     }
 };
 
-export { groq, groqFast, geminiFastFallback, geminiPrimary as gemini, geminiMultimodal, codingModel, chatModel, searchModel, groqQwen, groqGpt20b };
+export { groq, groqFast, routerModel, geminiFastFallback, geminiPrimary as gemini, geminiMultimodal, codingModel, chatModel, searchModel, groqQwen, groqGpt20b };
