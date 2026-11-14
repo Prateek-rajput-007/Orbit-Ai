@@ -1,14 +1,14 @@
 import { useReducedMotion } from "framer-motion"
-import { Code2, FileText, Presentation, Search } from "lucide-react"
+import { Code2, FileText, MessageSquare, Search } from "lucide-react"
 import AssistantOrb from "./AssistantOrb.jsx"
 
 const workflows = [
   {
-    icon: Code2,
-    label: "Code & Build",
-    detail: "Generate applications, debug, and inspect live sandbox artifacts",
-    prompt: "Build a responsive web application for: ",
-    agent: "coding",
+    icon: MessageSquare,
+    label: "Chat",
+    detail: "Direct conversational assistant for questions, brainstorming, and ideas",
+    prompt: "Let's explore: ",
+    agent: "chat",
   },
   {
     icon: Search,
@@ -25,19 +25,19 @@ const workflows = [
     agent: "pdf",
   },
   {
-    icon: Presentation,
-    label: "Presentations",
-    detail: "Turn concepts into structured presentations with live deck viewer",
-    prompt: "Create a presentation deck on: ",
-    agent: "ppt",
+    icon: Code2,
+    label: "Code & Build",
+    detail: "Generate applications, debug, and inspect live sandbox artifacts",
+    prompt: "Build a responsive web application for: ",
+    agent: "coding",
   },
 ]
 
 const quickPrompts = [
   {
-    label: "Build a React dashboard",
-    prompt: "Build a responsive React dashboard with live KPI metrics and dark mode",
-    agent: "coding",
+    label: "Brainstorm SaaS ideas",
+    prompt: "Brainstorm 5 high-leverage SaaS product ideas in the AI developer tools space",
+    agent: "chat",
   },
   {
     label: "Research AI trends",
@@ -50,9 +50,9 @@ const quickPrompts = [
     agent: "pdf",
   },
   {
-    label: "Create a pitch deck",
-    prompt: "Create a 6-slide executive pitch deck covering problem, solution, market, and business model",
-    agent: "ppt",
+    label: "Build a React dashboard",
+    prompt: "Build a responsive React dashboard with live KPI metrics and dark mode",
+    agent: "coding",
   },
 ]
 
@@ -119,8 +119,9 @@ function EmptyChat({ disabled, onSend, onSelectPrompt }) {
               type="button"
               onClick={() => handleCardClick(workflow)}
               disabled={disabled}
-              className={`group flex items-start gap-3.5 rounded-xl border border-white/[0.08] bg-[#0d0e14]/90 backdrop-blur-md p-3.5 text-left shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] transition-all duration-150 hover:border-amber-400/40 hover:bg-[#12141e] hover:shadow-xl hover:shadow-amber-500/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer ${reduceMotion ? "" : "hover:-translate-y-0.5"
-                }`}
+              className={`group flex items-start gap-3.5 rounded-xl border border-white/[0.08] bg-[#0d0e14]/90 backdrop-blur-md p-3.5 text-left shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] transition-all duration-150 hover:border-amber-400/40 hover:bg-[#12141e] hover:shadow-xl hover:shadow-amber-500/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer ${
+                reduceMotion ? "" : "hover:-translate-y-0.5"
+              }`}
             >
               <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/[0.04] text-muted-soft transition-colors group-hover:border-accent-border/50 group-hover:bg-accent-soft group-hover:text-accent">
                 <WorkflowIcon aria-hidden="true" size={16} />
