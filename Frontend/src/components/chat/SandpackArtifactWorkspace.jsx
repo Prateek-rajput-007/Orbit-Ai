@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react"
+import { useState, useMemo, useCallback, useRef, useEffect } from "react"
 import {
   SandpackProvider,
   SandpackLayout,
@@ -7,6 +7,7 @@ import {
   SandpackPreview,
   SandpackConsole,
   useSandpack,
+  useSandpackNavigation,
 } from "@codesandbox/sandpack-react"
 import {
   RotateCcw,
@@ -87,6 +88,7 @@ function SandpackWorkspaceInner({
   onToggleFullScreen,
 }) {
   const { sandpack } = useSandpack()
+  const { refresh } = useSandpackNavigation()
   const { files, activeFile } = sandpack
   const [isExporting, setIsExporting] = useState(false)
 
@@ -99,6 +101,14 @@ function SandpackWorkspaceInner({
   const [zoom, setZoom] = useState(1.0)
 
   const containerRef = useRef(null)
+
+  // Recalculate iframe viewport whenever switching modes or resizing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      window.dispatchEvent(new Event("resize"))
+    }, 60)
+    return () => clearTimeout(timer)
+  }, [workspaceMode, explorerCollapsed, viewport, zoom])
 
   // Detect whether the user has modified any code locally
   const hasLocalEdits = useMemo(() => {
@@ -391,6 +401,23 @@ function SandpackWorkspaceInner({
             )}
           </button>
 
+          {/* Reload Live Preview Button */}
+          {workspaceMode !== "code" && (
+            <button
+              type="button"
+              onClick={() => {
+                refresh()
+                sandpack.runSandpack?.()
+                window.dispatchEvent(new Event("resize"))
+              }}
+              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] text-slate-400 border border-white/10 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+              title="Reload live preview"
+            >
+              <RotateCcw size={11} />
+              <span className="hidden sm:inline">Reload</span>
+            </button>
+          )}
+
           {/* Reset Local Edits Button */}
           {hasLocalEdits && (
             <button
@@ -438,82 +465,86 @@ function SandpackWorkspaceInner({
       <div ref={containerRef} className="flex-1 overflow-hidden p-1.5 sm:p-2 flex flex-col">
         <SandpackLayout className="h-full border border-white/10 rounded-xl overflow-hidden bg-slate-900/60 shadow-2xl flex flex-row !p-0">
           {/* Panel 1: File Explorer */}
-          {workspaceMode !== "preview" && !explorerCollapsed && (
-            <div
-              style={{
-                width: workspaceMode === "code" ? "22%" : `${explorerWidth}%`,
-                minWidth: "140px",
-                maxWidth: "280px",
-              }}
-              className="h-full border-r border-white/10 shrink-0 flex flex-col bg-slate-900/80 overflow-hidden"
-            >
-              <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 bg-slate-900 text-[11px] font-semibold text-slate-400">
-                <div className="flex items-center gap-1.5">
-                  <FileCode size={12} className="text-amber-400" />
-                  <span>Files</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setExplorerCollapsed(true)}
-                  className="text-slate-500 hover:text-white transition cursor-pointer p-0.5"
-                  title="Collapse explorer"
-                >
-                  <PanelLeftClose size={12} />
-                </button>
+          <div
+            style={{
+              display: workspaceMode === "preview" || explorerCollapsed ? "none" : "flex",
+              width: workspaceMode === "code" ? "22%" : `${explorerWidth}%`,
+              minWidth: "140px",
+              maxWidth: "280px",
+            }}
+            className="h-full border-r border-white/10 shrink-0 flex-col bg-slate-900/80 overflow-hidden"
+          >
+            <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 bg-slate-900 text-[11px] font-semibold text-slate-400">
+              <div className="flex items-center gap-1.5">
+                <FileCode size={12} className="text-amber-400" />
+                <span>Files</span>
               </div>
-              <div className="flex-1 overflow-auto text-xs">
-                <SandpackFileExplorer autoHiddenFiles />
-              </div>
+              <button
+                type="button"
+                onClick={() => setExplorerCollapsed(true)}
+                className="text-slate-500 hover:text-white transition cursor-pointer p-0.5"
+                title="Collapse explorer"
+              >
+                <PanelLeftClose size={12} />
+              </button>
             </div>
-          )}
+            <div className="flex-1 overflow-auto text-xs">
+              <SandpackFileExplorer autoHiddenFiles />
+            </div>
+          </div>
 
           {/* Draggable Splitter 1: Explorer <-> Editor */}
-          {workspaceMode === "split" && !explorerCollapsed && (
-            <div
-              onPointerDown={(e) => handleStartResize("explorer", e)}
-              className="w-1.5 shrink-0 bg-white/5 hover:bg-amber-500/50 active:bg-amber-500 transition-colors cursor-col-resize relative group flex items-center justify-center z-10"
-              title="Drag to resize Explorer (double click to collapse)"
-              onDoubleClick={() => setExplorerCollapsed(true)}
-            >
-              <div className="w-0.5 h-6 rounded-full bg-white/20 group-hover:bg-amber-300 transition-colors" />
-            </div>
-          )}
+          <div
+            onPointerDown={(e) => handleStartResize("explorer", e)}
+            style={{
+              display: workspaceMode === "split" && !explorerCollapsed ? "flex" : "none",
+            }}
+            className="w-1.5 shrink-0 bg-white/5 hover:bg-amber-500/50 active:bg-amber-500 transition-colors cursor-col-resize relative group items-center justify-center z-10"
+            title="Drag to resize Explorer (double click to collapse)"
+            onDoubleClick={() => setExplorerCollapsed(true)}
+          >
+            <div className="w-0.5 h-6 rounded-full bg-white/20 group-hover:bg-amber-300 transition-colors" />
+          </div>
 
           {/* Panel 2: Code Editor */}
-          {workspaceMode !== "preview" && (
-            <div
-              style={{
-                width: workspaceMode === "code" ? "auto" : `${editorWidth}%`,
-                minWidth: workspaceMode === "code" ? "0" : "180px",
-              }}
-              className={`h-full min-w-0 border-r border-white/10 ${
-                workspaceMode === "code" ? "flex-1" : ""
-              } flex flex-col overflow-hidden bg-slate-950/60`}
-            >
-              <SandpackCodeEditor
-                showLineNumbers
-                showInlineErrors
-                wrapContent
-                closableTabs
-                className="h-full"
-              />
-            </div>
-          )}
+          <div
+            style={{
+              display: workspaceMode === "preview" ? "none" : "flex",
+              width: workspaceMode === "code" ? "auto" : `${editorWidth}%`,
+              minWidth: workspaceMode === "code" ? "0" : "180px",
+            }}
+            className={`h-full min-w-0 border-r border-white/10 ${
+              workspaceMode === "code" ? "flex-1" : ""
+            } flex-col overflow-hidden bg-slate-950/60`}
+          >
+            <SandpackCodeEditor
+              showLineNumbers
+              showInlineErrors
+              wrapContent
+              closableTabs
+              className="h-full"
+            />
+          </div>
 
           {/* Draggable Splitter 2: Editor <-> Preview */}
-          {workspaceMode === "split" && (
-            <div
-              onPointerDown={(e) => handleStartResize("editor", e)}
-              className="w-1.5 shrink-0 bg-white/5 hover:bg-amber-500/50 active:bg-amber-500 transition-colors cursor-col-resize relative group flex items-center justify-center z-10"
-              title="Drag to resize Editor and Preview"
-            >
-              <div className="w-0.5 h-6 rounded-full bg-white/20 group-hover:bg-amber-300 transition-colors" />
-            </div>
-          )}
+          <div
+            onPointerDown={(e) => handleStartResize("editor", e)}
+            style={{
+              display: workspaceMode === "split" ? "flex" : "none",
+            }}
+            className="w-1.5 shrink-0 bg-white/5 hover:bg-amber-500/50 active:bg-amber-500 transition-colors cursor-col-resize relative group items-center justify-center z-10"
+            title="Drag to resize Editor and Preview"
+          >
+            <div className="w-0.5 h-6 rounded-full bg-white/20 group-hover:bg-amber-300 transition-colors" />
+          </div>
 
           {/* Panel 3: Application Preview & Bottom Console Drawer */}
-          {workspaceMode !== "code" && (
-            <div className="flex-1 h-full min-w-0 flex flex-col bg-black/50 overflow-hidden relative">
+          <div
+            style={{
+              display: workspaceMode === "code" ? "none" : "flex",
+            }}
+            className="flex-1 h-full min-w-0 flex-col bg-black/50 overflow-hidden relative"
+          >
               {/* Compilation / Runtime Error Notification Banner */}
               {hasRuntimeError && (
                 <div className="absolute top-3 left-3 right-3 z-30 p-3 bg-red-950/95 border border-red-500/50 rounded-lg shadow-2xl text-xs text-red-200 flex flex-col gap-2 backdrop-blur-md animate-in fade-in duration-200">
@@ -643,7 +674,6 @@ function SandpackWorkspaceInner({
                 </div>
               )}
             </div>
-          )}
         </SandpackLayout>
       </div>
     </div>
