@@ -39,7 +39,14 @@ import {
   fetchProjectCurrentDetails,
 } from "../../features/conversations/projectVersionActions.js"
 
-export default function CodeArtifactPanel({ artifact, conversationId, onClose, onArtifactChange }) {
+export default function CodeArtifactPanel({
+  artifact,
+  conversationId,
+  onClose,
+  onArtifactChange,
+  onSend,
+  isSending = false,
+}) {
   const [historicalArtifact, setHistoricalArtifact] = useState(null)
   const [previewingVersion, setPreviewingVersion] = useState(null)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
@@ -559,6 +566,8 @@ export default function CodeArtifactPanel({ artifact, conversationId, onClose, o
             onClose={onClose}
             isFullScreen={isFullScreen}
             onToggleFullScreen={() => setIsFullScreen((prev) => !prev)}
+            onSend={onSend}
+            isSending={isSending}
           />
         ) : (
           /* Legacy HTML / Vanilla Projects / Scripts: Execute via Sandboxed Iframe */

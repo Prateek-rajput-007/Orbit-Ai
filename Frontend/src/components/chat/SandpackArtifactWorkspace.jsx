@@ -28,6 +28,9 @@ import {
   Code2,
   ChevronDown,
   AlertCircle,
+  Sparkles,
+  Send,
+  Loader2,
 } from "lucide-react"
 import {
   mapOrbitArtifactToSandpack,
@@ -86,11 +89,16 @@ function SandpackWorkspaceInner({
   onResetOriginal,
   isFullScreen,
   onToggleFullScreen,
+  onSend,
+  isSending = false,
 }) {
   const { sandpack } = useSandpack()
   const { refresh } = useSandpackNavigation()
   const { files, activeFile } = sandpack
   const [isExporting, setIsExporting] = useState(false)
+  const [promptText, setPromptText] = useState("")
+  const [isIterationBarCollapsed, setIsIterationBarCollapsed] = useState(false)
+  const [submitFeedback, setSubmitFeedback] = useState("")
 
   // Resizable panel state (percentages)
   const [explorerWidth, setExplorerWidth] = useState(16) // ~16% default
@@ -148,6 +156,17 @@ function SandpackWorkspaceInner({
       const next = [...ZOOM_LEVELS].reverse().find((z) => z < prev - 0.01)
       return next !== undefined ? next : 0.5
     })
+  }
+
+  // In-canvas AI iteration submit handler (Phase 2)
+  const handleIterationSubmit = (e) => {
+    if (e) e.preventDefault()
+    const query = promptText.trim()
+    if (!query || isSending || !onSend) return
+    onSend(query, null, "coding")
+    setPromptText("")
+    setSubmitFeedback("Sent update request to Orbit...")
+    setTimeout(() => setSubmitFeedback(""), 3500)
   }
 
   const handleResetZoom = () => {
@@ -673,6 +692,101 @@ function SandpackWorkspaceInner({
                   </div>
                 </div>
               )}
+
+              {/* In-Canvas Floating AI Iteration Bar (Phase 2) */}
+              {onSend && (
+                <div
+                  className="absolute left-1/2 -translate-x-1/2 z-30 w-[94%] max-w-xl transition-all duration-200 pointer-events-auto"
+                  style={{
+                    bottom: showConsole ? `${consoleHeight + 12}px` : "14px",
+                  }}
+                >
+                  {isIterationBarCollapsed ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsIterationBarCollapsed(false)}
+                      className="mx-auto flex items-center gap-2 rounded-full border border-amber-500/40 bg-slate-950/90 px-3.5 py-1.5 text-xs font-medium text-amber-300 shadow-xl backdrop-blur-md hover:bg-slate-900 hover:border-amber-400 transition cursor-pointer"
+                      title="Open AI iteration prompt"
+                    >
+                      <Sparkles size={13} className="text-amber-400" />
+                      <span>Ask Orbit to modify app...</span>
+                    </button>
+                  ) : (
+                    <div className="rounded-2xl border border-white/15 bg-slate-950/95 p-2 shadow-2xl backdrop-blur-xl ring-1 ring-black/60">
+                      {/* Suggestion Chips */}
+                      {!isSending && (
+                        <div className="flex items-center gap-1.5 px-1 pb-1.5 overflow-x-auto text-[10px] text-slate-400 no-scrollbar">
+                          <span className="text-amber-400/80 font-mono text-[9px] uppercase tracking-wider shrink-0">Quick:</span>
+                          {[
+                            "Add dark mode toggle",
+                            "Improve mobile responsiveness",
+                            "Add animations & polish",
+                            "Add sound effects",
+                          ].map((chip) => (
+                            <button
+                              key={chip}
+                              type="button"
+                              onClick={() => setPromptText(chip)}
+                              className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-slate-300 hover:bg-white/10 hover:text-amber-300 transition-colors shrink-0 cursor-pointer text-[10px]"
+                            >
+                              +{chip.replace("Add ", "").replace("Improve ", "")}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Main Input Form */}
+                      <form onSubmit={handleIterationSubmit} className="flex items-center gap-2">
+                        <div className="flex items-center pl-1.5 text-amber-400 shrink-0">
+                          <Sparkles size={14} className={isSending ? "animate-pulse text-amber-300" : ""} />
+                        </div>
+                        <input
+                          type="text"
+                          value={promptText}
+                          onChange={(e) => setPromptText(e.target.value)}
+                          disabled={isSending}
+                          placeholder={
+                            isSending
+                              ? "Orbit is updating the application..."
+                              : 'Ask Orbit to modify this app (e.g. "Add dark mode toggle")...'
+                          }
+                          className="flex-1 min-w-0 bg-transparent px-1 py-1 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none disabled:opacity-60"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setIsIterationBarCollapsed(true)}
+                          className="p-1 text-slate-500 hover:text-slate-300 rounded transition cursor-pointer shrink-0"
+                          title="Minimize iteration bar"
+                        >
+                          <ChevronDown size={14} />
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={!promptText.trim() || isSending}
+                          className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-black transition hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 cursor-pointer shadow-sm"
+                        >
+                          {isSending ? (
+                            <>
+                              <Loader2 size={13} className="animate-spin" />
+                              <span>Updating...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Send size={12} />
+                              <span>Update</span>
+                            </>
+                          )}
+                        </button>
+                      </form>
+                      {submitFeedback && (
+                        <div className="px-2 pt-1 text-[10px] text-amber-400 font-medium">
+                          {submitFeedback}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
         </SandpackLayout>
       </div>
@@ -689,10 +803,12 @@ export default function SandpackArtifactWorkspace({
   artifact,
   isFullScreen,
   onToggleFullScreen,
+  onSend,
+  isSending = false,
 }) {
   const [viewport, setViewport] = useState("desktop")
   const [showConsole, setShowConsole] = useState(false)
-  const [workspaceMode, setWorkspaceMode] = useState("split") // "preview" | "split" | "code"
+  const [workspaceMode, setWorkspaceMode] = useState("preview") // Phase 1: Default to "preview" first
   const [resetNonce, setResetNonce] = useState(0)
 
   // Map Orbit's CodeArtifact into Sandpack's required structure
@@ -733,6 +849,8 @@ export default function SandpackArtifactWorkspace({
         onResetOriginal={handleResetOriginal}
         isFullScreen={isFullScreen}
         onToggleFullScreen={onToggleFullScreen}
+        onSend={onSend}
+        isSending={isSending}
       />
     </SandpackProvider>
   )

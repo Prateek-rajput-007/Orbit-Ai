@@ -147,6 +147,8 @@ function Home() {
                   conversationId={workspace.activeId}
                   onClose={() => workspace.setLatestArtifact(null)}
                   onArtifactChange={workspace.setLatestArtifact}
+                  onSend={workspace.sendMessage}
+                  isSending={workspace.isSending}
                 />
               ) : (
                 <PdfArtifactPanel
