@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { motion } from "framer-motion"
 import downloadFile from "../../lib/download.js"
 import {
@@ -14,11 +14,66 @@ import {
   ChevronRight,
 } from "lucide-react"
 
+/**
+ * Safely converts a data URL (base64) into a Blob URL.
+ * Modern browsers block top-frame navigation to data: URIs (e.g. window.open or target="_blank"),
+ * which causes "Open in Tab" to fail or open about:blank#blocked.
+ * Blob URLs are treated as trusted same-origin resources by Chromium and open cleanly in tabs.
+ */
+function createPdfBlobUrl(source) {
+  if (!source || typeof source !== "string") return ""
+  if (source.startsWith("blob:") || source.startsWith("http://") || source.startsWith("https://")) {
+    return source
+  }
+
+  try {
+    const commaIndex = source.indexOf(",")
+    const base64Data = commaIndex !== -1 ? source.slice(commaIndex + 1) : source
+    const mimeMatch = source.match(/^data:([^;]+);/)
+    const mimeType = mimeMatch ? mimeMatch[1] : "application/pdf"
+
+    const binaryString = window.atob(base64Data)
+    const len = binaryString.length
+    const bytes = new Uint8Array(len)
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i)
+    }
+
+    const blob = new Blob([bytes], { type: mimeType })
+    return URL.createObjectURL(blob)
+  } catch (err) {
+    console.error("[PdfArtifactPanel] Failed to convert dataUrl to Blob URL:", err)
+    return source
+  }
+}
+
 export default function PdfArtifactPanel({ document: pdfDoc, onClose }) {
   const [zoom, setZoom] = useState(1)
   const [downloadSuccess, setDownloadSuccess] = useState(false)
   const [userPage, setUserPage] = useState(null)
   const [prevDocRef, setPrevDocRef] = useState(pdfDoc)
+
+  const dataUrl = pdfDoc?.dataUrl || ""
+
+  // Create a blob URL for safe embedding and reliable new-tab navigation
+  const blobUrl = useMemo(() => {
+    return createPdfBlobUrl(dataUrl)
+  }, [dataUrl])
+
+  // Clean up Blob URL when unmounted (delayed to allow newly opened tabs to finish rendering)
+  useEffect(() => {
+    return () => {
+      if (blobUrl && blobUrl.startsWith("blob:")) {
+        setTimeout(() => {
+          try {
+            URL.revokeObjectURL(blobUrl)
+          } catch (err) {
+            console.debug("[PdfArtifactPanel] Revocation notice:", err)
+          }
+        }, 60_000)
+      }
+    }
+  }, [blobUrl])
 
   if (pdfDoc !== prevDocRef) {
     setPrevDocRef(pdfDoc)
@@ -30,7 +85,6 @@ export default function PdfArtifactPanel({ document: pdfDoc, onClose }) {
   const fileName = pdfDoc.fileName || "Document.pdf"
   const pageCount = pdfDoc.pageCount || 1
   const fileSize = pdfDoc.fileSize || ""
-  const dataUrl = pdfDoc.dataUrl || ""
 
   const currentPage = Math.max(1, Math.min(pageCount, userPage ?? pdfDoc.initialPage ?? pdfDoc.page ?? 1))
 
@@ -47,6 +101,27 @@ export default function PdfArtifactPanel({ document: pdfDoc, onClose }) {
     downloadFile(dataUrl, targetName)
     setDownloadSuccess(true)
     setTimeout(() => setDownloadSuccess(false), 2500)
+  }
+
+  const handleOpenInTab = (e) => {
+    if (!dataUrl) return
+    e.preventDefault()
+
+    const targetUrl = (blobUrl && blobUrl.startsWith("blob:"))
+      ? blobUrl
+      : (createPdfBlobUrl(dataUrl) || dataUrl)
+
+    const urlWithPage = `${targetUrl}#page=${currentPage}`
+    const win = window.open(urlWithPage, "_blank", "noopener,noreferrer")
+    if (!win) {
+      const a = document.createElement("a")
+      a.href = urlWithPage
+      a.target = "_blank"
+      a.rel = "noopener noreferrer"
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    }
   }
 
   return (
@@ -170,14 +245,14 @@ export default function PdfArtifactPanel({ document: pdfDoc, onClose }) {
           className="mx-auto h-full min-h-[450px] w-full rounded-xl border border-white/10 bg-white shadow-xl overflow-hidden transition-transform duration-100"
           style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}
         >
-          {dataUrl ? (
+          {(blobUrl || dataUrl) ? (
             <object
-              data={`${dataUrl}#page=${currentPage}&toolbar=0&navpanes=0`}
+              data={`${blobUrl || dataUrl}#page=${currentPage}&toolbar=0&navpanes=0`}
               type="application/pdf"
               className="h-full w-full"
             >
               <iframe
-                src={`${dataUrl}#page=${currentPage}&toolbar=0&navpanes=0`}
+                src={`${blobUrl || dataUrl}#page=${currentPage}&toolbar=0&navpanes=0`}
                 title={fileName}
                 className="h-full w-full border-0"
               />
@@ -195,10 +270,12 @@ export default function PdfArtifactPanel({ document: pdfDoc, onClose }) {
         <span className="truncate">Orbit Document Engine • Side-by-Side View</span>
         {dataUrl && (
           <a
-            href={dataUrl}
+            href={`${blobUrl || dataUrl}#page=${currentPage}`}
             target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-1 text-accent hover:underline transition"
+            rel="noopener noreferrer"
+            onClick={handleOpenInTab}
+            className="flex items-center gap-1 text-accent hover:underline transition cursor-pointer"
+            title={`Open ${fileName} at Page ${currentPage} in a new tab`}
           >
             <span>Open in Tab</span>
             <ExternalLink size={9} />
