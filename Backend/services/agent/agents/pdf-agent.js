@@ -8,6 +8,24 @@ import {
     getCachedPdfDocument,
 } from "../utils/extractPdf.js";
 import {
+    ingestPdfDocument,
+    formatDocumentOutline,
+    formatGroundedContext,
+    findRelevantChunks,
+    getConversationDocumentIds,
+} from "../pdf/ingestion/pdfIngestion.service.js";
+import {
+    executeHybridRetrieval,
+    resolveTargetDocument,
+} from "../pdf/retrieval/hybridRetrieval.service.js";
+import { buildGroundedContext } from "../pdf/answer/groundedContext.service.js";
+import {
+    validateAnswerCitations,
+    validateAnswerCitationsAsync,
+    EVIDENCE_STATUS,
+    CONFIDENCE_LEVELS,
+} from "../pdf/answer/citationValidation.service.js";
+import {
     compilePdfDocument,
     parsePdfDocJson,
 } from "../utils/generatePdf.js";
@@ -61,17 +79,18 @@ export const pdfAgent = async (state = {}) => {
 
     // Case 1: Fresh PDF attachment uploaded on this turn (Document Analysis Mode)
     if (state.attachment && state.attachment.mimeType === "application/pdf") {
-        onStage?.("reading", "Parsing uploaded PDF metadata and extracting text...");
-        const pdfDoc = await extractPdfMetadata(state.attachment);
-        if (conversationId) {
-            await cachePdfDocument(conversationId, pdfDoc);
-        }
+        onStage?.("reading", "Parsing uploaded PDF and generating structure-aware page chunks...");
+        const pdfDoc = await ingestPdfDocument(state.attachment, {
+            conversationId,
+            userId: state.userId || "anonymous",
+            generateEmbeddings: true,
+        });
 
         const llm = getModel("pdf");
-        onStage?.("reading", `Analyzing PDF document "${pdfDoc.fileName}" (${pdfDoc.pageCount} pages)...`);
+        onStage?.("reading", `Analyzing PDF document "${pdfDoc.fileName}" (${pdfDoc.pageCount} pages, ${pdfDoc.totalChunks || 1} sections)...`);
 
         const prompt = `You are an expert PDF document analyst, researcher, and executive intelligence assistant.
-Analyze the attached PDF document ("${pdfDoc.fileName}", ${pdfDoc.pageCount} pages) thoroughly and answer the user's request.
+Analyze the attached PDF document ("${pdfDoc.fileName}", ${pdfDoc.pageCount} pages, ${pdfDoc.totalChunks || 1} indexed sections) thoroughly and answer the user's request.
 
 Response and citation guidelines:
 - Ground your answer in the document contents.
@@ -107,22 +126,23 @@ ${userPrompt}
             stopHeartbeat();
         } catch (geminiError) {
             stopHeartbeat();
-            console.warn("Primary multimodal PDF invoke failed, falling back to Groq on extracted text:", geminiError.message);
-            // Fallback: Use Groq on extracted document text
-            if (pdfDoc.text) {
-                const groqLlm = getModel("chat");
+            console.warn("Primary multimodal PDF invoke failed, falling back to text model on page-aware chunks:", geminiError.message);
+            // Fallback: Use structured grounded context with page-level markers (no arbitrary 35k slicing)
+            if (pdfDoc.text || (pdfDoc.pages && pdfDoc.pages.length > 0)) {
+                const textLlm = getModel("chat");
+                const groundedContext = formatGroundedContext(pdfDoc, { maxContextTokens: 12000 });
                 const fallbackPrompt = `You are an expert PDF document analyst.
-Answer the user's request using the extracted document text below from "${pdfDoc.fileName}" (${pdfDoc.pageCount} pages).
-Cite specific page indicators or sections where available.
+Answer the user's request using the structured document text below from "${pdfDoc.fileName}" (${pdfDoc.pageCount} pages, ${pdfDoc.totalChunks || 1} sections).
+Cite specific page indicators [Page X] for all referenced facts or sections.
 
-Document text excerpt:
-${pdfDoc.text.slice(0, 35000)}
+Document Context:
+${groundedContext}
 
 ${conversationContext ? `Recent conversation context:\n${conversationContext}\n` : ""}
 User request:
 ${userPrompt}
 `;
-                const fallbackResult = await groqLlm.invoke(fallbackPrompt);
+                const fallbackResult = await textLlm.invoke(fallbackPrompt);
                 aiResponse = extractText(fallbackResult);
             } else {
                 throw geminiError;
@@ -132,18 +152,27 @@ ${userPrompt}
         }
 
         if (!aiResponse || !aiResponse.trim()) {
-            aiResponse = `I have reviewed **${pdfDoc.fileName}** (${pdfDoc.pageCount} pages). Please specify which sections or details you would like summarized.`;
+            aiResponse = `I have reviewed **${pdfDoc.fileName}** (${pdfDoc.pageCount} pages, ${pdfDoc.totalChunks || 1} sections). Please specify which sections or details you would like summarized.`;
         }
 
         return {
             ...state,
             aiResponse,
             pdfDocument: {
+                documentId: pdfDoc.documentId,
                 fileName: pdfDoc.fileName,
                 fileSize: pdfDoc.fileSize,
                 pageCount: pdfDoc.pageCount,
                 title: pdfDoc.title,
                 dataUrl: pdfDoc.dataUrl,
+                status: pdfDoc.status,
+                totalChunks: pdfDoc.totalChunks,
+                isScanned: pdfDoc.isScanned,
+                requiresOcr: pdfDoc.requiresOcr,
+                tablesDetected: pdfDoc.tablesDetected || 0,
+                chartsDetected: pdfDoc.chartsDetected || 0,
+                ocrPagesProcessed: pdfDoc.ocrPagesProcessed || 0,
+                visualExtractionStatus: pdfDoc.visualExtractionStatus || "SKIPPED",
             },
             suggestedQuestions: DEFAULT_SUGGESTED_QUESTIONS,
         };
@@ -249,41 +278,154 @@ ${sectionBullets}
     }
 
     // Case 3: Multi-turn follow-up without re-uploading the file
-    // Check Redis document cache first for this conversation
-    const cachedDoc = conversationId ? await getCachedPdfDocument(conversationId) : null;
-    if (cachedDoc && cachedDoc.text) {
-        onStage?.("reading", `Reviewing document excerpt from "${cachedDoc.fileName}"...`);
-        const groqOrGemini = getModel("chat");
-        const prompt = `You are an expert PDF document analyst.
-The user is asking a follow-up question regarding the document "${cachedDoc.fileName}" (${cachedDoc.pageCount} pages) previously loaded in this conversation.
-Answer their question accurately and concisely using the document text below.
-Cite specific pages or sections where available.
+    // Check Redis document cache for this conversation (resolving targeted document if multiple exist)
+    let cachedDoc = null;
+    let targetResolution = null;
+    if (conversationId) {
+        targetResolution = await resolveTargetDocument(conversationId, userPrompt);
+        if (targetResolution.isAmbiguous && targetResolution.availableDocs.length > 1) {
+            const docNames = targetResolution.availableDocs.map((d) => `**${d.fileName}**`).join(", ");
+            return {
+                ...state,
+                aiResponse: `You have multiple documents loaded in this conversation (${docNames}). Please specify which document you would like to query.`,
+                suggestedQuestions: targetResolution.availableDocs.slice(0, 3).map((d) => `Review ${d.fileName}`),
+            };
+        }
+        if (targetResolution.targetDocumentId) {
+            cachedDoc = await getCachedPdfDocument(conversationId, targetResolution.targetDocumentId);
+        }
+        if (!cachedDoc) {
+            cachedDoc = await getCachedPdfDocument(conversationId);
+        }
+    }
+    if (cachedDoc && (cachedDoc.text || (cachedDoc.pages && cachedDoc.pages.length > 0))) {
+        onStage?.("reading", `Searching document sections from "${cachedDoc.fileName}" (${cachedDoc.pageCount} pages)...`);
+        const textModel = getModel("chat");
 
-Document text excerpt:
-${cachedDoc.text.slice(0, 35000)}
+        // Execute Hybrid Retrieval (Semantic Vector + Keyword BM25 + Reciprocal Rank Fusion)
+        let retrieval = null;
+        let documentContext = "";
+
+        try {
+            retrieval = await executeHybridRetrieval({
+                query: userPrompt,
+                userId: state.userId || "anonymous",
+                conversationId,
+                documentId: cachedDoc.documentId,
+                options: {
+                    limit: 6,
+                    embeddingClient: state.embeddingClient,
+                },
+            });
+        } catch (retrievalErr) {
+            console.warn("[PDF Agent] Hybrid retrieval error, falling back to cached context:", retrievalErr.message);
+        }
+
+        if (retrieval?.status === "PARTIAL") {
+            console.warn("[PDF Agent] Hybrid retrieval completed with PARTIAL status (one branch degraded):", {
+                vectorCount: retrieval.telemetry?.vectorCount,
+                keywordCount: retrieval.telemetry?.keywordCount,
+                finalCount: retrieval.telemetry?.finalCount,
+            });
+        }
+
+        // 1. Gather candidate chunks for grounded answer generation
+        let candidateChunks = [];
+        if (retrieval && Array.isArray(retrieval.results) && retrieval.results.length > 0) {
+            candidateChunks = retrieval.results;
+        } else if (Array.isArray(cachedDoc.chunks) && cachedDoc.chunks.length > 0) {
+            candidateChunks = findRelevantChunks(cachedDoc.chunks, userPrompt, 6);
+        } else if (cachedDoc.text) {
+            candidateChunks = [{
+                chunkId: "legacy_chunk_1",
+                pageStart: 1,
+                pageEnd: cachedDoc.pageCount || 1,
+                section: "Document Content",
+                content: cachedDoc.text.slice(0, 32000),
+                documentId: cachedDoc.documentId,
+                fileName: cachedDoc.fileName,
+            }];
+        }
+
+        const grounded = buildGroundedContext(candidateChunks, {
+            defaultDocumentName: cachedDoc.fileName,
+            defaultDocumentId: cachedDoc.documentId,
+            maxTokens: 8000,
+        });
+
+        const prompt = `You are an expert PDF document analyst, researcher, and executive intelligence assistant.
+Analyze the user's question regarding the document "${cachedDoc.fileName}" (${cachedDoc.pageCount} pages, ${cachedDoc.totalChunks || 1} sections) using ONLY the grounded evidence below.
+
+Evidence & Citation Guidelines:
+1. Base your answer strictly on the provided <source> items below.
+2. For every factual claim, metric, finding, or direct statement, cite the corresponding source identifier (e.g. [S1], [S2], [S1][S2]).
+3. NEVER invent source IDs, page numbers, or external facts not present in the sources. The system resolves all page numbers from the cited source IDs.
+4. If the provided sources do not contain sufficient evidence to answer the question, explicitly state: "The document does not contain sufficient information to answer this question."
+5. If retrieved sources conflict, clearly describe the conflicting statements and cite both sources.
+6. Multi-part questions should be answered section-by-section with corresponding citations.
+
+<grounded_sources>
+${grounded.contextText}
+</grounded_sources>
 
 ${conversationContext ? `Recent conversation context:\n${conversationContext}\n` : ""}
 User follow-up question:
 ${userPrompt}
 `;
+
         startHeartbeat("reading");
         let result = null;
         try {
-            result = await groqOrGemini.invoke(prompt);
+            result = await textModel.invoke(prompt);
         } finally {
             stopHeartbeat();
         }
-        const aiResponse = extractText(result) || `I reviewed **${cachedDoc.fileName}** (${cachedDoc.pageCount} pages), but could not find a direct answer to your question.`;
+
+        const rawAiResponse = extractText(result) || `I reviewed **${cachedDoc.fileName}** (${cachedDoc.pageCount} pages), but could not find a direct answer to your question.`;
+
+        // Validate citations, evaluate claim-level evidence, and map source IDs to trusted chunk metadata
+        const validated = await validateAnswerCitationsAsync({
+            rawText: rawAiResponse,
+            sourceMap: grounded.sourceMap,
+            query: userPrompt,
+            userId: state.userId,
+            conversationId,
+            targetDocumentId: cachedDoc.documentId,
+            verifierModel: textModel,
+        });
+
+        let aiResponse = validated.answer;
+        if (validated.citations.length > 0) {
+            const sourcesSummary = validated.citations.map((c) =>
+                `- **[${c.citationNumber}]** *${c.documentName}* (Page ${c.pageStart}${c.pageEnd > c.pageStart ? `-${c.pageEnd}` : ""}, Section: ${c.section})`
+            ).join("\n");
+            aiResponse = `${validated.answer}\n\n**Sources & Citations:**\n${sourcesSummary}`;
+        }
+
         return {
             ...state,
             aiResponse,
+            citations: validated.citations,
+            evidenceStatus: validated.evidenceStatus,
+            confidence: validated.confidence,
             pdfDocument: {
+                documentId: cachedDoc.documentId,
                 fileName: cachedDoc.fileName,
                 fileSize: cachedDoc.fileSize,
                 pageCount: cachedDoc.pageCount,
                 title: cachedDoc.title,
                 dataUrl: cachedDoc.dataUrl,
+                status: cachedDoc.status,
+                totalChunks: cachedDoc.totalChunks,
+                isScanned: cachedDoc.isScanned,
+                requiresOcr: cachedDoc.requiresOcr,
+                tablesDetected: cachedDoc.tablesDetected || 0,
+                chartsDetected: cachedDoc.chartsDetected || 0,
+                ocrPagesProcessed: cachedDoc.ocrPagesProcessed || 0,
+                visualExtractionStatus: cachedDoc.visualExtractionStatus || "SKIPPED",
             },
+            retrievalTelemetry: retrieval?.telemetry || null,
+            retrievedChunks: retrieval?.results || [],
             suggestedQuestions: DEFAULT_SUGGESTED_QUESTIONS,
         };
     }
