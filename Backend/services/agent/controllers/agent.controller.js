@@ -427,6 +427,7 @@ export const agent = async (req, res) => {
         const result = await graph.invoke({
             prompt: promptText,
             conversationId,
+            userId: String(userId),
             history: history.map(({ role, content }) => ({ role, content })),
             agentMode,
             existingCodeArtifact: effectiveExistingArtifact,
@@ -527,6 +528,9 @@ export const agent = async (req, res) => {
                 codeArtifact: result.codeArtifact ?? null,
                 imageAttachment: result.imageAttachment ?? null,
                 suggestedQuestions: result.suggestedQuestions ?? [],
+                citations: result.citations ?? [],
+                evidenceStatus: result.evidenceStatus ?? null,
+                confidence: result.confidence ?? null,
             },
             userAttachment,
         );
@@ -555,6 +559,9 @@ export const agent = async (req, res) => {
             imageAttachment: result.imageAttachment ?? null,
             userAttachment,
             suggestedQuestions: result.suggestedQuestions ?? [],
+            citations: result.citations ?? [],
+            evidenceStatus: result.evidenceStatus ?? null,
+            confidence: result.confidence ?? null,
             userMessageId: savedMessages[0]._id,
             assistantMessageId: savedMessages[1]._id,
             telemetry: telemetryData,

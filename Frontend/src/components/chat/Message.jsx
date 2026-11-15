@@ -8,6 +8,8 @@ import {
   Download,
   FileCheck,
   AlertCircle,
+  FileText,
+  CheckCircle2,
 } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -190,6 +192,58 @@ function Message({ message, onActionClick, onOpenArtifact }) {
                   <span className="inline-block w-1.5 h-3.5 ml-1 align-text-bottom bg-accent animate-pulse" aria-hidden="true" />
                 )}
               </div>
+
+              {Array.isArray(message.citations) && message.citations.length > 0 && (
+                <div className="mt-3 mb-2 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="mb-2 flex items-center justify-between text-[11px] font-medium text-muted">
+                    <div className="flex items-center gap-1.5">
+                      <FileText size={12} className="text-accent" />
+                      <span>Verifiable Citations ({message.citations.length})</span>
+                    </div>
+                    {message.evidenceStatus && (
+                      <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-mono border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
+                        <CheckCircle2 size={10} />
+                        {message.evidenceStatus}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {message.citations.map((citation, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          if (onOpenArtifact) {
+                            onOpenArtifact({
+                              ...(message.pdfDocument || {}),
+                              fileName: citation.documentName || message.pdfDocument?.fileName || "Document.pdf",
+                              documentId: citation.documentId,
+                              initialPage: citation.pageStart,
+                              page: citation.pageStart,
+                            })
+                          }
+                        }}
+                        className="group inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-ink-soft transition hover:border-accent/40 hover:bg-accent/10 hover:text-accent cursor-pointer"
+                        aria-label={`Citation [${citation.citationNumber}]: Jump to Page ${citation.pageStart}${citation.pageEnd > citation.pageStart ? ` to ${citation.pageEnd}` : ''} in ${citation.documentName || 'document'}`}
+                        title={`Jump to Page ${citation.pageStart} in ${citation.documentName || 'document'}: "${citation.snippet || ''}"`}
+                      >
+                        <span className="font-mono text-accent text-[11px] font-semibold">[{citation.citationNumber}]</span>
+                        {citation.contentType === "TABLE" && (
+                          <span className="rounded bg-sky-500/15 border border-sky-500/30 px-1 py-0.5 text-[9px] font-mono font-medium text-sky-400">TABLE</span>
+                        )}
+                        {citation.contentType === "CHART" && (
+                          <span className="rounded bg-purple-500/15 border border-purple-500/30 px-1 py-0.5 text-[9px] font-mono font-medium text-purple-400">CHART</span>
+                        )}
+                        {citation.contentType === "OCR_TEXT" && (
+                          <span className="rounded bg-amber-500/15 border border-amber-500/30 px-1 py-0.5 text-[9px] font-mono font-medium text-amber-400">OCR</span>
+                        )}
+                        <span className="truncate max-w-[150px]">Page {citation.pageStart}{citation.pageEnd > citation.pageStart ? `-${citation.pageEnd}` : ""}</span>
+                        <span className="text-[10px] text-muted group-hover:text-accent truncate max-w-[120px]">({citation.section})</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {message.pdfDocument && (
                 <PdfDocumentCard

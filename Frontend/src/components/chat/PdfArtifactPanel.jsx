@@ -10,11 +10,20 @@ import {
   ZoomOut,
   RotateCcw,
   ExternalLink,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 
 export default function PdfArtifactPanel({ document: pdfDoc, onClose }) {
   const [zoom, setZoom] = useState(1)
   const [downloadSuccess, setDownloadSuccess] = useState(false)
+  const [userPage, setUserPage] = useState(null)
+  const [prevDocRef, setPrevDocRef] = useState(pdfDoc)
+
+  if (pdfDoc !== prevDocRef) {
+    setPrevDocRef(pdfDoc)
+    setUserPage(null)
+  }
 
   if (!pdfDoc) return null
 
@@ -22,6 +31,11 @@ export default function PdfArtifactPanel({ document: pdfDoc, onClose }) {
   const pageCount = pdfDoc.pageCount || 1
   const fileSize = pdfDoc.fileSize || ""
   const dataUrl = pdfDoc.dataUrl || ""
+
+  const currentPage = Math.max(1, Math.min(pageCount, userPage ?? pdfDoc.initialPage ?? pdfDoc.page ?? 1))
+
+  const handlePrevPage = () => setUserPage(Math.max(1, currentPage - 1))
+  const handleNextPage = () => setUserPage(Math.min(pageCount, currentPage + 1))
 
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.15, 1.8))
   const handleZoomOut = () => setZoom((prev) => Math.max(prev - 0.15, 0.7))
@@ -63,6 +77,33 @@ export default function PdfArtifactPanel({ document: pdfDoc, onClose }) {
 
         {/* Action Controls */}
         <div className="flex items-center gap-1.5 shrink-0">
+          {/* Page navigation controls */}
+          {pageCount > 1 && (
+            <div className="flex items-center rounded-lg border border-white/10 bg-white/5 p-0.5">
+              <button
+                type="button"
+                onClick={handlePrevPage}
+                disabled={currentPage <= 1}
+                className="p-1 rounded text-muted hover:bg-white/10 hover:text-ink disabled:opacity-30 transition cursor-pointer"
+                title="Previous page"
+              >
+                <ChevronLeft size={12} />
+              </button>
+              <span className="px-1 text-[10px] font-mono text-muted">
+                {currentPage}/{pageCount}
+              </span>
+              <button
+                type="button"
+                onClick={handleNextPage}
+                disabled={currentPage >= pageCount}
+                className="p-1 rounded text-muted hover:bg-white/10 hover:text-ink disabled:opacity-30 transition cursor-pointer"
+                title="Next page"
+              >
+                <ChevronRight size={12} />
+              </button>
+            </div>
+          )}
+
           {/* Zoom controls */}
           <div className="hidden sm:flex items-center rounded-lg border border-white/10 bg-white/5 p-0.5">
             <button
@@ -131,12 +172,12 @@ export default function PdfArtifactPanel({ document: pdfDoc, onClose }) {
         >
           {dataUrl ? (
             <object
-              data={`${dataUrl}#toolbar=0&navpanes=0`}
+              data={`${dataUrl}#page=${currentPage}&toolbar=0&navpanes=0`}
               type="application/pdf"
               className="h-full w-full"
             >
               <iframe
-                src={`${dataUrl}#toolbar=0&navpanes=0`}
+                src={`${dataUrl}#page=${currentPage}&toolbar=0&navpanes=0`}
                 title={fileName}
                 className="h-full w-full border-0"
               />

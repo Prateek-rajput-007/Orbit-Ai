@@ -52,11 +52,14 @@ const messageSchema = new mongoose.Schema({
     },
     pdfDocument: {
         type: {
+            documentId: { type: String, default: "" },
             fileName: { type: String, default: "" },
             fileSize: { type: String, default: "" },
             pageCount: { type: Number, default: 1 },
             title: { type: String, default: "" },
-            dataUrl: { type: String, default: "" }
+            dataUrl: { type: String, default: "" },
+            status: { type: String, default: "READY" },
+            totalChunks: { type: Number, default: 0 },
         },
         default: null
     },
@@ -116,6 +119,34 @@ const messageSchema = new mongoose.Schema({
     suggestedQuestions: {
         type: [String],
         default: []
+    },
+    citations: {
+        type: [{
+            sourceId: { type: String, required: true },
+            citationNumber: { type: Number, default: 1 },
+            documentId: { type: String, default: "" },
+            documentName: { type: String, default: "" },
+            chunkId: { type: String, default: "" },
+            pageStart: { type: Number, required: true },
+            pageEnd: { type: Number, required: true },
+            section: { type: String, default: "General" },
+            snippet: { type: String, default: "" },
+            hasSemanticSupport: { type: Boolean, default: true },
+            contentType: { type: String, enum: ["TEXT", "TABLE", "CHART", "OCR_TEXT"], default: "TEXT" },
+            extractionMethod: { type: String, default: "text" },
+            visualMetadata: { type: mongoose.Schema.Types.Mixed, default: null },
+        }],
+        default: []
+    },
+    evidenceStatus: {
+        type: String,
+        enum: ["SUPPORTED", "PARTIALLY_SUPPORTED", "INSUFFICIENT_EVIDENCE", "CONFLICTING_EVIDENCE", null],
+        default: null
+    },
+    confidence: {
+        type: String,
+        enum: ["HIGH", "MEDIUM", "LOW", null],
+        default: null
     },
     timestamp: {
         type: Date,

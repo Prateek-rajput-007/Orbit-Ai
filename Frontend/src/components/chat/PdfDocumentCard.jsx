@@ -59,6 +59,21 @@ export default function PdfDocumentCard({
                   <CheckCircle2 size={10} />
                   Indexed
                 </span>
+                {Boolean(pdfDocument.tablesDetected) && (
+                  <span className="inline-flex items-center gap-1 text-sky-400 font-mono">
+                    • {pdfDocument.tablesDetected} {pdfDocument.tablesDetected === 1 ? "table" : "tables"}
+                  </span>
+                )}
+                {Boolean(pdfDocument.chartsDetected) && (
+                  <span className="inline-flex items-center gap-1 text-purple-400 font-mono">
+                    • {pdfDocument.chartsDetected} {pdfDocument.chartsDetected === 1 ? "chart" : "charts"}
+                  </span>
+                )}
+                {Boolean(pdfDocument.ocrPagesProcessed) && (
+                  <span className="inline-flex items-center gap-1 text-amber-400 font-mono">
+                    • OCR
+                  </span>
+                )}
               </div>
             </div>
           </div>

@@ -13,7 +13,10 @@ const getOwnedConversation = (conversationId, userId) => {
 
 const invalidateConversationMemory = async (conversationId, userId) => {
     try {
-        await redis.del(`messages-${userId}-${conversationId}`);
+        await Promise.all([
+            redis.del(`messages-${userId}-${conversationId}`),
+            redis.del(`pdf-doc-${conversationId}`),
+        ]);
     } catch (error) {
         console.error("Unable to invalidate conversation memory cache:", error.message);
     }
@@ -162,6 +165,9 @@ export const saveTurn = async (req, res) => {
                 codeArtifact: assistantMessage.codeArtifact ?? null,
                 imageAttachment: assistantMessage.imageAttachment ?? null,
                 suggestedQuestions: assistantMessage.suggestedQuestions ?? [],
+                citations: assistantMessage.citations ?? [],
+                evidenceStatus: assistantMessage.evidenceStatus ?? null,
+                confidence: assistantMessage.confidence ?? null,
             },
         ]);
         conversation.timestamp = new Date();
