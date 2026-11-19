@@ -4,15 +4,27 @@ import { getErrorMessage } from "../getErrorMessage.js"
 import { queryKeys } from "../queryKeys.js"
 
 const getSessionUser = async () => {
-  const { completeGoogleSignIn } = await import("./auth.js")
-  return completeGoogleSignIn()
+  const { restoreSession } = await import("./auth.js")
+  return restoreSession()
 }
 
 export function useAuthSession() {
   const queryClient = useQueryClient()
+
   const userQuery = useQuery({
     queryKey: queryKeys.currentUser,
     queryFn: getSessionUser,
+    refetchOnWindowFocus: false, // Prevents window refocus from triggering duplicate auth requests
+    staleTime: 5 * 60 * 1000,    // User session remains fresh for 5 minutes
+    gcTime: 10 * 60 * 1000,
+    retry: (failureCount, error) => {
+      const status = error?.response?.status || error?.status
+      // Do not retry 401 unauthenticated, 403 forbidden, or 404 not found
+      if (status === 401 || status === 403 || status === 404) {
+        return false
+      }
+      return failureCount < 1
+    },
   })
 
   const signInMutation = useMutation({
@@ -21,7 +33,9 @@ export function useAuthSession() {
       return loginWithGoogle()
     },
     onSuccess: (user) => {
-      if (user) queryClient.setQueryData(queryKeys.currentUser, user)
+      if (user) {
+        queryClient.setQueryData(queryKeys.currentUser, user)
+      }
     },
   })
 
@@ -40,10 +54,12 @@ export function useAuthSession() {
   const mutateSignOut = signOutMutation.mutateAsync
   const resetSignIn = signInMutation.reset
   const resetSignOut = signOutMutation.reset
+
   const signIn = useCallback(
     () => mutateSignIn(),
     [mutateSignIn],
   )
+
   const signOut = useCallback(async () => {
     try {
       await mutateSignOut()
@@ -52,6 +68,7 @@ export function useAuthSession() {
       return false
     }
   }, [mutateSignOut])
+
   const clearError = useCallback(() => {
     resetSignIn()
     resetSignOut()

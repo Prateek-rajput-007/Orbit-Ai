@@ -10,6 +10,32 @@ import NoticeBanner from "../components/layout/NoticeBanner.jsx"
 import { useAuthSession } from "../features/auth/useAuthSession.js"
 import { useConversations } from "../features/conversations/useConversations.js"
 
+function WorkspaceLoader() {
+  const [slowServer, setSlowServer] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSlowServer(true)
+    }, 2500)
+    return () => clearTimeout(timer)
+  }, [])
+
+  return (
+    <main className="grid min-h-dvh place-items-center bg-paper text-caption text-muted">
+      <div className="flex flex-col items-center gap-3">
+        <div className="flex items-center gap-2">
+          <span className="size-2 rounded-full bg-accent/70 animate-pulse" />
+          <span>
+            {slowServer
+              ? "Verifying workspace session… (waking up server if idle)"
+              : "Loading workspace..."}
+          </span>
+        </div>
+      </div>
+    </main>
+  )
+}
+
 function Home() {
   const reduceMotion = useReducedMotion()
   const auth = useAuthSession()
@@ -55,14 +81,7 @@ function Home() {
   }
 
   if (auth.isLoadingUser) {
-    return (
-      <main className="grid min-h-dvh place-items-center bg-paper text-caption text-muted">
-        <div className="flex items-center gap-2">
-          <span className="size-2 rounded-full bg-accent/70 animate-pulse" />
-          <span>Loading workspace...</span>
-        </div>
-      </main>
-    )
+    return <WorkspaceLoader />
   }
 
   if (!auth.user) {

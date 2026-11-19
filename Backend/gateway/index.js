@@ -34,7 +34,7 @@ const allowedOrigins = frontendUrl.split(",").map((u) => u.trim().replace(/\/$/,
 // Specific preview domain pattern for Orbit (avoids wildcards that trust any arbitrary .vercel.app)
 const previewDomainRegex = process.env.VERCEL_PREVIEW_PATTERN
     ? new RegExp(process.env.VERCEL_PREVIEW_PATTERN)
-    : /^https:\/\/orbit-ai(?:-[a-zA-Z0-9_-]+)?\.vercel\.app$/;
+    : /^https:\/\/(?:orbit-ai|orbitai-agents)(?:-[a-zA-Z0-9_-]+)?\.vercel\.app$/;
 
 export const app = express();
 
@@ -137,7 +137,7 @@ app.use("/api/agent", protect, agentLimiter, proxy(agentServiceUrl, {
 }));
 
 // 4. Current user session route
-app.use("/api/me", protect, getCurrentUser);
+app.get("/api/me", protect, getCurrentUser);
 
 // 5. Unrestricted Health check (critical: never rate-limited to avoid Render deploy/health check failures)
 app.get("/", (req, res) => {

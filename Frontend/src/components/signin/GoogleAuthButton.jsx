@@ -1,3 +1,6 @@
+import { useEffect, useState } from "react"
+import { ArrowRight, Loader2 } from "lucide-react"
+
 /**
  * Official Google Logo & Premium SaaS Google Authentication CTA Component
  */
@@ -24,8 +27,6 @@ export function GoogleIcon({ className = "size-5" }) {
   )
 }
 
-import { ArrowRight, Loader2 } from "lucide-react"
-
 export function GoogleAuthButton({
   onSignIn,
   isSigningIn = false,
@@ -34,6 +35,20 @@ export function GoogleAuthButton({
   className = "",
 }) {
   const isDisabled = disabled || isSigningIn
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+
+  useEffect(() => {
+    if (!isSigningIn) return
+
+    const timer = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1)
+    }, 1000)
+
+    return () => {
+      clearInterval(timer)
+      setElapsedSeconds(0)
+    }
+  }, [isSigningIn])
 
   const handleClick = (e) => {
     if (isDisabled) {
@@ -43,20 +58,33 @@ export function GoogleAuthButton({
     onSignIn?.(e)
   }
 
+  const getLoadingText = () => {
+    if (variant === "compact") {
+      if (elapsedSeconds >= 7) return "Waking server…"
+      if (elapsedSeconds >= 3) return "Verifying…"
+      return "Connecting…"
+    }
+
+    if (elapsedSeconds >= 7) return "Waking up server… almost ready"
+    if (elapsedSeconds >= 3) return "Verifying session with server…"
+    return "Connecting to Google…"
+  }
+
   if (variant === "compact") {
+    const loadingText = getLoadingText()
     return (
       <button
         type="button"
         onClick={handleClick}
         disabled={isDisabled}
         aria-busy={isSigningIn}
-        aria-label={isSigningIn ? "Connecting to Google…" : "Continue with Google"}
+        aria-label={isSigningIn ? loadingText : "Sign in with Google"}
         className={`group relative inline-flex h-9 items-center justify-center gap-2 rounded-full border border-white/15 border-t-white/25 bg-white/[0.06] px-4 text-xs font-medium text-white/90 shadow-sm backdrop-blur-md transition-all duration-150 ease-out hover:border-amber-400/50 hover:bg-white/[0.10] hover:text-white hover:shadow-md hover:shadow-amber-500/10 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#07080a] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none ${className}`}
       >
         {isSigningIn ? (
           <>
             <Loader2 className="size-3.5 shrink-0 animate-spin text-amber-400" aria-hidden="true" />
-            <span>Connecting…</span>
+            <span>{loadingText}</span>
           </>
         ) : (
           <>
@@ -72,19 +100,21 @@ export function GoogleAuthButton({
     )
   }
 
+  const loadingText = getLoadingText()
+
   return (
     <button
       type="button"
       onClick={handleClick}
       disabled={isDisabled}
       aria-busy={isSigningIn}
-      aria-label={isSigningIn ? "Connecting to Google…" : "Continue with Google"}
+      aria-label={isSigningIn ? loadingText : "Continue with Google"}
       className={`group relative inline-flex h-11 sm:h-12 w-full items-center justify-center gap-3 rounded-full border border-white/[0.14] border-t-white/[0.28] bg-gradient-to-b from-white/[0.09] to-white/[0.04] px-6 text-[14.5px] sm:text-[15px] font-medium text-white shadow-[0_4px_20px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-md transition-all duration-200 ease-out hover:border-amber-400/60 hover:bg-white/[0.11] hover:shadow-[0_0_32px_rgba(234,189,88,0.22),0_4px_24px_rgba(0,0,0,0.7)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.985] active:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#07080a] disabled:cursor-not-allowed disabled:opacity-50 disabled:translate-y-0 disabled:scale-100 disabled:shadow-none disabled:hover:bg-white/[0.06] disabled:hover:border-white/10 ${className}`}
     >
       {isSigningIn ? (
         <>
           <Loader2 className="size-4 sm:size-5 shrink-0 animate-spin text-amber-400" aria-hidden="true" />
-          <span>Connecting to Google…</span>
+          <span>{loadingText}</span>
         </>
       ) : (
         <>
@@ -101,4 +131,3 @@ export function GoogleAuthButton({
 }
 
 export default GoogleAuthButton
-
