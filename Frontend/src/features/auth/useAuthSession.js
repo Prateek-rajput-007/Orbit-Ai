@@ -34,6 +34,12 @@ export function useAuthSession() {
     },
     onSuccess: (user) => {
       if (user) {
+        try {
+          const uId = user.userId ?? user._id ?? user.id
+          if (uId && typeof window !== "undefined") {
+            window.sessionStorage.removeItem(`orbit_active_chat_${uId}`)
+          }
+        } catch {}
         queryClient.setQueryData(queryKeys.currentUser, user)
       }
     },
@@ -45,6 +51,15 @@ export function useAuthSession() {
       return logout()
     },
     onSuccess: () => {
+      try {
+        if (typeof window !== "undefined") {
+          Object.keys(window.sessionStorage).forEach((k) => {
+            if (k.startsWith("orbit_active_chat")) {
+              window.sessionStorage.removeItem(k)
+            }
+          })
+        }
+      } catch {}
       queryClient.setQueryData(queryKeys.currentUser, null)
       queryClient.removeQueries({ queryKey: ["conversations"] })
     },

@@ -16,7 +16,18 @@ import { readAgentEventStream } from "./agentStreamReader.js"
 
 export function useConversations(user) {
   const queryClient = useQueryClient()
-  const [activeId, setActiveId] = useState(null)
+  const userId = user?.userId ?? user?._id ?? user?.id
+  const conversationsKey = queryKeys.conversations(userId)
+  const activeChatKey = userId ? `orbit_active_chat_${userId}` : null
+
+  const [activeId, setActiveId] = useState(() => {
+    try {
+      if (typeof window !== "undefined" && userId) {
+        return window.sessionStorage.getItem(`orbit_active_chat_${userId}`) || null
+      }
+    } catch {}
+    return null
+  })
   const [actionNotice, setActionNotice] = useState("")
   const [latestArtifact, setLatestArtifact] = useState(null)
   const [generatingStage, setGeneratingStage] = useState("")
@@ -34,14 +45,31 @@ export function useConversations(user) {
     errorCount: 0,
     retryCount: 0,
   })
-  const userId = user?.userId ?? user?._id ?? user?.id
-  const conversationsKey = queryKeys.conversations(userId)
+
+  // Synchronize activeId to sessionStorage across page refreshes
+  useEffect(() => {
+    if (!activeChatKey || typeof window === "undefined") return
+    try {
+      if (activeId) {
+        window.sessionStorage.setItem(activeChatKey, activeId)
+      } else {
+        window.sessionStorage.removeItem(activeChatKey)
+      }
+    } catch {}
+  }, [activeChatKey, activeId])
 
   const prevUserIdRef = useRef(userId)
   useEffect(() => {
     if (prevUserIdRef.current !== userId) {
       prevUserIdRef.current = userId
-      setActiveId(null)
+      setActiveId(() => {
+        try {
+          if (userId && typeof window !== "undefined") {
+            return window.sessionStorage.getItem(`orbit_active_chat_${userId}`) || null
+          }
+        } catch {}
+        return null
+      })
       setLatestArtifact(null)
     }
   }, [userId])
@@ -56,10 +84,18 @@ export function useConversations(user) {
     () => (userId ? conversationsQuery.data ?? [] : []),
     [conversationsQuery.data, userId],
   )
-  const selectedId =
-    activeId && conversations.some(({ id }) => id === activeId)
-      ? activeId
-      : null
+  const selectedId = useMemo(() => {
+    if (!activeId) return null
+    if (conversations.length === 0 && conversationsQuery.isPending) return activeId
+    return conversations.some(({ id }) => id === activeId) ? activeId : null
+  }, [activeId, conversations, conversationsQuery.isPending])
+
+  // Clean up stale activeId if conversation was deleted
+  useEffect(() => {
+    if (activeId && conversationsQuery.isSuccess && !conversations.some(({ id }) => id === activeId)) {
+      setActiveId(null)
+    }
+  }, [activeId, conversations, conversationsQuery.isSuccess])
 
   // 2. Fetch messages on-demand ONLY for the selected conversation
   const messagesKey = queryKeys.messages(selectedId)
