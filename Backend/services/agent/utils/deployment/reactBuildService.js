@@ -53,19 +53,49 @@ const UNTRUSTED_CONFIG_FILES = new Set([
  */
 export function findFrontendNodeModules() {
     const candidates = [
+        path.resolve(__dirname, "../../node_modules"),
+        path.resolve(__dirname, "../../../../node_modules"),
         path.resolve(__dirname, "../../../../../Frontend/node_modules"),
+        path.resolve(__dirname, "../../../../../node_modules"),
+        path.resolve(process.cwd(), "node_modules"),
+        path.resolve(process.cwd(), "services/agent/node_modules"),
+        path.resolve(process.cwd(), "Backend/services/agent/node_modules"),
         path.resolve(process.cwd(), "Frontend/node_modules"),
         path.resolve(process.cwd(), "../Frontend/node_modules"),
         path.resolve(process.cwd(), "../../Frontend/node_modules"),
+        path.resolve(process.cwd(), "../../../Frontend/node_modules"),
     ];
 
+    // Priority 1: First candidate that actually contains vite
+    for (const c of candidates) {
+        if (fs.existsSync(c)) {
+            const vitePath = path.join(c, "vite/dist/node/index.js");
+            if (fs.existsSync(vitePath)) {
+                return c;
+            }
+        }
+    }
+
+    // Priority 2: Walk up directory tree from __dirname to locate any node_modules containing vite
+    let curr = __dirname;
+    for (let i = 0; i < 8; i++) {
+        const check = path.join(curr, "node_modules");
+        if (fs.existsSync(check) && fs.existsSync(path.join(check, "vite/dist/node/index.js"))) {
+            return check;
+        }
+        const parent = path.dirname(curr);
+        if (parent === curr) break;
+        curr = parent;
+    }
+
+    // Priority 3: Fall back to any existing candidate node_modules
     for (const c of candidates) {
         if (fs.existsSync(c)) {
             return c;
         }
     }
 
-    throw new Error("Could not locate Frontend/node_modules directory for React production builder.");
+    throw new Error("Could not locate a node_modules directory with Vite installed for React production builder. Please ensure dependencies are installed.");
 }
 
 /**
