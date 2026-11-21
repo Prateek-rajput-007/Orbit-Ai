@@ -51,7 +51,7 @@ const quickPrompts = [
   },
   {
     label: "Build a React dashboard",
-    prompt: "Build a responsive React dashboard with live KPI metrics and dark mode",
+    prompt: "Build a responsive React dashboard with live KPI metrics and interactive charts",
     agent: "coding",
   },
 ]

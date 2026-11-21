@@ -327,13 +327,13 @@ CRITICAL ARCHITECTURE & EXECUTION RULES:
      * Extract all business logic, math calculations, formula parsers, precision formatters, and data converters into standalone, pure JavaScript modules with ZERO React dependencies.
      * Pure functions are easy to test, robust against floating-point precision bugs, and fully decoupled from the UI.
    - Layer 2 — Custom Hooks ('src/hooks/'):
-     * Encapsulate stateful logic, user actions, storage synchronization ('localStorage'), and window event listeners (e.g., keyboard shortcuts) in custom hooks (e.g., 'useCalculator.js', 'useTheme.js', 'useResume.js').
+     * Encapsulate stateful logic, user actions, storage synchronization ('localStorage'), and window event listeners (e.g., keyboard shortcuts) in custom hooks (e.g., 'useCalculator.js', 'useFilter.js', 'useResume.js').
      * Components and 'App.jsx' simply consume the hook: 'const { display, formula, history, pressKey, clearAll } = useCalculator();'.
    - Layer 3 — Declarative Configurations ('src/constants/'):
      * Avoid hardcoding repetitive JSX buttons or form fields. Define layouts, button palettes, section schemas, or navigation menus as declarative arrays/objects (e.g., 'src/constants/keypadLayout.js', 'src/constants/resumeSections.js').
    - Layer 4 — Focused Presentational UI ('src/components/'):
      * Build clean, modular components (Atoms/Molecules) that accept props or render data-driven configs.
-     * Decouple theme toggles: use a dedicated 'useTheme' hook or context rather than directly mutating 'document.documentElement' inside 'App.jsx'.
+     * Cohesive Aesthetic: Build a polished, unified modern design directly. Do NOT generate redundant dark/light theme switcher buttons, 'useTheme' hooks, or theme boilerplate unless the user explicitly requested theme switching in their prompt. Focus all code and UI on the requested features.
 3. REQUIRED PROJECT STRUCTURE:
    - "package.json": Must declare valid JSON with "name", "version", and "dependencies" including "react": "^18.2.0" and "react-dom": "^18.2.0", plus any external libraries used (e.g. "lucide-react": "^0.263.1", "recharts": "^2.8.0", "date-fns": "^2.30.0").
    - "index.html": HTML entry document containing '<div id="root"></div>' and '<script type="module" src="/src/main.jsx"></script>'. Include '<script src="https://cdn.tailwindcss.com"></script>' in the head for Tailwind CSS styling.
@@ -347,7 +347,7 @@ CRITICAL ARCHITECTURE & EXECUTION RULES:
 4. PREMIUM VISUAL DESIGN & TAILWIND POLISH (Bolt.new / Lovable standards):
    - NEVER output raw unstyled HTML elements with default browser borders, grey backgrounds, or default serif fonts.
    - Every single component MUST have Tailwind styling: modern rounded corners ('rounded-2xl', 'rounded-xl'), soft elevations ('shadow-xl', 'shadow-md'), clean borders, and smooth transitions ('transition-all active:scale-95').
-   - Use Lucide React icons (e.g. import { Moon, Sun, History, Trash2, RotateCcw, Copy, Check, Calculator } from "lucide-react") for professional iconography.
+   - Use Lucide React icons (e.g. import { History, Trash2, RotateCcw, Copy, Check, Calculator, TrendingUp, BarChart3, Filter } from "lucide-react") for professional iconography.
    - Every button, input form, selector, and filter must have ACTIVE working handlers. No dead click handlers.
    - Handle empty states and edge cases gracefully.
 5. ADAPTIVE, FEATURE-RICH APPLICATION EXCELLENCE:
@@ -356,7 +356,7 @@ CRITICAL ARCHITECTURE & EXECUTION RULES:
      * Architecture: 'src/utils/calculatorEngine.js' (pure evaluation, precision, formatters), 'src/hooks/useCalculator.js' (state, history, keyboard listener), 'src/constants/keypadLayout.js' (declarative button grid config), plus modular Display, Keypad, and History components.
      * Keypad: Proper CSS Grid ('grid grid-cols-4 gap-2.5 sm:gap-3') with squircle/rounded buttons. Color-code digits, operators, clear/backspace, and equals. Never render buttons in a single inline row!
      * Screen: Digital LCD display with formula breadcrumb and large formatted result.
-     * Features: Calculation history drawer/log with click-to-recall, keyboard listeners (Enter, Backspace, Escape, numbers, operators), and theme support.
+     * Features: Calculation history drawer/log with click-to-recall, keyboard listeners (Enter, Backspace, Escape, numbers, operators), and precision controls.
      * Adaptive depth: If prompt mentions scientific/advanced/SaaS, add mode toggling (Standard vs. Scientific with sin, cos, tan, sqrt, pow) or unit converters.
    - For Resume Builders & Document SaaS (e.g. "resume", "cv builder", "portfolio maker"):
      * Architecture: 'src/utils/resumeData.js' (schemas, sample profiles, export utilities), 'src/hooks/useResume.js' (CRUD on sections, local persistence), modular form sections, and switchable templates (Modern, Minimal, Executive).
