@@ -3187,6 +3187,7 @@ export const normalizeCodeProject = (raw = {}, userPrompt = "", runtimeStrategy 
         previewDataUrl,
         bundledHtml,
         status: "ready",
+        ...(raw.dataProvenance ? { dataProvenance: raw.dataProvenance } : {}),
         deployment: {
             status: "sandbox",
             url: null,
@@ -3218,6 +3219,7 @@ export const applyFileOperations = (existingArtifact, operationPayload = {}, use
         return normalizeCodeProject({
             ...operationPayload,
             baseArtifactId: existingArtifact.artifactId,
+            dataProvenance: operationPayload.dataProvenance || existingArtifact.dataProvenance || undefined,
         }, userPrompt, runtimeStrategy);
     }
 
@@ -3376,6 +3378,7 @@ export const applyFileOperations = (existingArtifact, operationPayload = {}, use
         entryFile: resolvedEntry,
         files: updatedFiles,
         baseArtifactId: existingArtifact.artifactId,
+        dataProvenance: existingArtifact.dataProvenance || undefined,
     }, userPrompt, runtimeStrategy);
 
     const integrity = validateArtifactIntegrity(candidateArtifact, runtimeStrategy);
