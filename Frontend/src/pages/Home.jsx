@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
+import { useNavigate, useParams, Outlet } from "react-router-dom"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import ChatArea from "../components/chat/ChatArea.jsx"
 import PdfArtifactPanel from "../components/chat/PdfArtifactPanel.jsx"
@@ -38,8 +39,11 @@ function WorkspaceLoader() {
 
 function Home() {
   const reduceMotion = useReducedMotion()
+  const navigate = useNavigate()
+  const { conversationId } = useParams()
+  const routeConversationId = conversationId || null
   const auth = useAuthSession()
-  const workspace = useConversations(auth.user)
+  const workspace = useConversations(auth.user, routeConversationId, navigate)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true)
   const notice = workspace.error || auth.error
@@ -48,12 +52,17 @@ function Home() {
   const createWorkspaceConversation = workspace.createNewConversation
   const setLatestArtifact = workspace.setLatestArtifact
 
-  const createNewConversation = useCallback(async () => {
+  const createNewConversation = useCallback(() => {
     clearAuthError()
+    clearWorkspaceError()
     setLatestArtifact(null)
-    const created = await createWorkspaceConversation()
-    if (created) setSidebarOpen(false)
-  }, [clearAuthError, createWorkspaceConversation, setLatestArtifact])
+    setSidebarOpen(false)
+    if (routeConversationId) {
+      navigate("/")
+    } else {
+      createWorkspaceConversation()
+    }
+  }, [clearAuthError, clearWorkspaceError, createWorkspaceConversation, navigate, routeConversationId, setLatestArtifact])
 
   useEffect(() => {
     const handleShortcuts = (event) => {
@@ -67,13 +76,15 @@ function Home() {
     return () => window.removeEventListener("keydown", handleShortcuts)
   }, [createNewConversation])
 
-  const selectConversation = (id) => {
-    workspace.setActiveId(id)
+  const selectConversation = useCallback((id) => {
+    if (id !== routeConversationId) {
+      navigate(`/c/${id}`)
+    }
     clearWorkspaceError()
     clearAuthError()
     workspace.setLatestArtifact(null)
     setSidebarOpen(false)
-  }
+  }, [clearAuthError, clearWorkspaceError, navigate, routeConversationId, workspace])
 
   const dismissNotice = () => {
     clearWorkspaceError()
@@ -194,6 +205,7 @@ function Home() {
           />
         )}
       </AnimatePresence>
+      <Outlet />
     </main>
   )
 }

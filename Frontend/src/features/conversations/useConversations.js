@@ -14,20 +14,12 @@ import {
 } from "./getConversation.js"
 import { readAgentEventStream } from "./agentStreamReader.js"
 
-export function useConversations(user) {
+export function useConversations(user, routeConversationId = null, onNavigate = null) {
   const queryClient = useQueryClient()
   const userId = user?.userId ?? user?._id ?? user?.id
   const conversationsKey = queryKeys.conversations(userId)
-  const activeChatKey = userId ? `orbit_active_chat_${userId}` : null
+  const selectedId = routeConversationId || null
 
-  const [activeId, setActiveId] = useState(() => {
-    try {
-      if (typeof window !== "undefined" && userId) {
-        return window.sessionStorage.getItem(`orbit_active_chat_${userId}`) || null
-      }
-    } catch {}
-    return null
-  })
   const [actionNotice, setActionNotice] = useState("")
   const [latestArtifact, setLatestArtifact] = useState(null)
   const [generatingStage, setGeneratingStage] = useState("")
@@ -46,33 +38,17 @@ export function useConversations(user) {
     retryCount: 0,
   })
 
-  // Synchronize activeId to sessionStorage across page refreshes
-  useEffect(() => {
-    if (!activeChatKey || typeof window === "undefined") return
-    try {
-      if (activeId) {
-        window.sessionStorage.setItem(activeChatKey, activeId)
-      } else {
-        window.sessionStorage.removeItem(activeChatKey)
-      }
-    } catch {}
-  }, [activeChatKey, activeId])
-
   const prevUserIdRef = useRef(userId)
   useEffect(() => {
     if (prevUserIdRef.current !== userId) {
+      const prev = prevUserIdRef.current
       prevUserIdRef.current = userId
-      setActiveId(() => {
-        try {
-          if (userId && typeof window !== "undefined") {
-            return window.sessionStorage.getItem(`orbit_active_chat_${userId}`) || null
-          }
-        } catch {}
-        return null
-      })
+      if (prev && !userId) {
+        onNavigate?.("/", { replace: true })
+      }
       setLatestArtifact(null)
     }
-  }, [userId])
+  }, [userId, onNavigate])
 
   // 1. Fetch conversation summaries (sidebar list) - Single lightweight query
   const conversationsQuery = useQuery({
@@ -84,33 +60,31 @@ export function useConversations(user) {
     () => (userId ? conversationsQuery.data ?? [] : []),
     [conversationsQuery.data, userId],
   )
-  const selectedId = useMemo(() => {
-    if (!activeId) return null
-    if (conversations.length === 0 && conversationsQuery.isPending) return activeId
-    return conversations.some(({ id }) => id === activeId) ? activeId : null
-  }, [activeId, conversations, conversationsQuery.isPending])
 
-  // Clean up stale activeId if conversation was deleted
-  useEffect(() => {
-    if (activeId && conversationsQuery.isSuccess && !conversations.some(({ id }) => id === activeId)) {
-      setActiveId(null)
-    }
-  }, [activeId, conversations, conversationsQuery.isSuccess])
-
-  // 2. Fetch messages on-demand ONLY for the selected conversation
+  // 2. Fetch messages on-demand ONLY for the selected conversation and when user is authenticated
   const messagesKey = queryKeys.messages(selectedId)
   const messagesQuery = useQuery({
     queryKey: messagesKey,
     queryFn: () => fetchConversationMessages(selectedId),
-    enabled: Boolean(selectedId),
+    enabled: Boolean(selectedId && userId),
+    staleTime: 30_000,
+    retry: (failureCount, error) => {
+      const status = error?.response?.status || error?.status
+      if (status === 404 || status === 401 || status === 403) {
+        return false
+      }
+      return failureCount < 1
+    },
   })
 
   // 3. Compose activeConversation with on-demand messages
   const activeConversation = useMemo(() => {
+    if (!selectedId) return null
     const summary = conversations.find(({ id }) => id === selectedId)
-    if (!summary) return null
     return {
-      ...summary,
+      id: selectedId,
+      title: summary?.title ?? "Conversation",
+      updatedAt: summary?.updatedAt ?? 0,
       messages: messagesQuery.data ?? [],
     }
   }, [conversations, selectedId, messagesQuery.data])
@@ -127,7 +101,6 @@ export function useConversations(user) {
         ...current.filter(({ id }) => id !== conversation.id),
       ])
       queryClient.setQueryData(queryKeys.messages(conversation.id), [])
-      setActiveId(conversation.id)
     },
     onError: (error) => console.error("Unable to create conversation:", error),
   })
@@ -143,7 +116,11 @@ export function useConversations(user) {
       queryClient.removeQueries({ queryKey: queryKeys.messages(deletedId) })
       if (selectedId === deletedId) {
         const remaining = conversations.filter(({ id }) => id !== deletedId)
-        setActiveId(remaining[0]?.id ?? null)
+        if (remaining.length > 0) {
+          onNavigate?.(`/c/${remaining[0].id}`, { replace: true })
+        } else {
+          onNavigate?.("/", { replace: true })
+        }
       }
       setActionNotice("")
     },
@@ -558,10 +535,10 @@ export function useConversations(user) {
 
   const createNewConversation = useCallback(() => {
     setActionNotice("")
-    setActiveId(null)
     setLatestArtifact(null)
+    onNavigate?.("/")
     return true
-  }, [])
+  }, [onNavigate])
 
   const sendMessage = useCallback(async (text, attachment = null, agentMode = "auto") => {
     const prompt = text.trim()
@@ -571,6 +548,7 @@ export function useConversations(user) {
     if (!conversation) {
       try {
         conversation = await createConversationAsync()
+        onNavigate?.(`/c/${conversation.id}`, { replace: true })
       } catch {
         return
       }
@@ -610,6 +588,7 @@ export function useConversations(user) {
     createConversationAsync,
     isSending,
     latestArtifact,
+    onNavigate,
     queryClient,
     resetSendMutation,
     selectedId,
@@ -630,8 +609,10 @@ export function useConversations(user) {
     conversationsQuery.error ??
     messagesQuery.error
   const errorMessage =
-    actionNotice ||
-    (error ? getErrorMessage(error, "Unable to complete the request.") : "")
+    messagesQuery.error?.response?.status === 404
+      ? "This conversation was not found or has been deleted."
+      : actionNotice ||
+        (error ? getErrorMessage(error, "Unable to complete the request.") : "")
   const deleteConversation = useCallback((id) => {
     setActionNotice("")
     deleteConversationMutate(id)
@@ -653,12 +634,13 @@ export function useConversations(user) {
     conversations,
     activeId: selectedId,
     activeConversation,
-    isLoading: conversationsQuery.isPending || (Boolean(selectedId) && messagesQuery.isPending && !messagesQuery.data),
+    isLoading:
+      (Boolean(userId) && conversationsQuery.isPending) ||
+      (Boolean(selectedId) && (messagesQuery.isPending || (!messagesQuery.data && !messagesQuery.isError))),
     isSending: sendMutation.isPending && (streamingConversationId ? streamingConversationId === selectedId : true),
     isAnySending: sendMutation.isPending,
     activeTurnId: sendMutation.isPending ? activeTurnId : null,
     error: errorMessage,
-    setActiveId,
     createNewConversation,
     deleteConversation,
     sendMessage,
