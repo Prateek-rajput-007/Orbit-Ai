@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import api from "../../api/api.js"
 import { getErrorMessage } from "../getErrorMessage.js"
@@ -37,6 +37,15 @@ export function useConversations(user) {
   const userId = user?.userId ?? user?._id ?? user?.id
   const conversationsKey = queryKeys.conversations(userId)
 
+  const prevUserIdRef = useRef(userId)
+  useEffect(() => {
+    if (prevUserIdRef.current !== userId) {
+      prevUserIdRef.current = userId
+      setActiveId(null)
+      setLatestArtifact(null)
+    }
+  }, [userId])
+
   // 1. Fetch conversation summaries (sidebar list) - Single lightweight query
   const conversationsQuery = useQuery({
     queryKey: conversationsKey,
@@ -48,9 +57,9 @@ export function useConversations(user) {
     [conversationsQuery.data, userId],
   )
   const selectedId =
-    conversations.some(({ id }) => id === activeId)
+    activeId && conversations.some(({ id }) => id === activeId)
       ? activeId
-      : conversations[0]?.id ?? null
+      : null
 
   // 2. Fetch messages on-demand ONLY for the selected conversation
   const messagesKey = queryKeys.messages(selectedId)
@@ -511,15 +520,12 @@ export function useConversations(user) {
   const resetSendMutation = sendMutation.reset
   const isSending = sendMutation.isPending
 
-  const createNewConversation = useCallback(async () => {
+  const createNewConversation = useCallback(() => {
     setActionNotice("")
-    try {
-      await createConversationAsync()
-      return true
-    } catch {
-      return false
-    }
-  }, [createConversationAsync])
+    setActiveId(null)
+    setLatestArtifact(null)
+    return true
+  }, [])
 
   const sendMessage = useCallback(async (text, attachment = null, agentMode = "auto") => {
     const prompt = text.trim()
