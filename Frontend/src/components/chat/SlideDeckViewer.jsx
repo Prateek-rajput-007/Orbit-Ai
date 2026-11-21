@@ -163,6 +163,21 @@ export default function SlideDeckViewer({ slides = [], presentationFile = null }
                       </li>
                     ))}
                 </ul>
+
+                {Array.isArray(currentSlide.sources) && currentSlide.sources.length > 0 && (
+                  <div className="mt-4 pt-2 border-t border-white/10 flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] font-mono text-accent">Sources:</span>
+                    {currentSlide.sources.map((s, sIdx) => (
+                      <span
+                        key={sIdx}
+                        className="rounded bg-white/5 border border-white/10 px-2 py-0.5 text-[10px] font-mono text-muted"
+                        title={s.snippet || `Page ${s.pageStart}`}
+                      >
+                        [{s.citationNumber || sIdx + 1}] Page {s.pageStart}{s.pageEnd > s.pageStart ? `-${s.pageEnd}` : ""} ({s.section || "General"})
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </motion.div>

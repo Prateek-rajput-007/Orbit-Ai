@@ -18,20 +18,43 @@ export const normalizeDeck = (data = {}, userPrompt = "") => {
             .map((b) => String(b).replace(/^[•\-\*\d\.\s]+/, "").trim())
             .filter(Boolean);
 
-        return {
+        const citationNumbers = Array.isArray(slide.citationNumbers)
+            ? slide.citationNumbers.map(Number).filter((n) => Number.isInteger(n) && n > 0)
+            : (Array.isArray(slide.citations) ? slide.citations.map(Number).filter((n) => Number.isInteger(n) && n > 0) : []);
+
+        const slideObj = {
             slideNumber,
             title,
             subtitle,
             bullets: bullets.length > 0 ? bullets : ["Overview and strategic insights."],
             speakerNotes: slide.speakerNotes ? String(slide.speakerNotes).trim() : "",
         };
+
+        if (citationNumbers.length > 0) {
+            slideObj.citationNumbers = citationNumbers;
+            slideObj.citations = citationNumbers;
+        }
+        if (Array.isArray(slide.sources) && slide.sources.length > 0) {
+            slideObj.sources = slide.sources;
+        }
+        if (slide.dataProvenance) {
+            slideObj.dataProvenance = slide.dataProvenance;
+        }
+
+        return slideObj;
     });
 
-    return {
+    const normalized = {
         deckTitle,
         summary,
         slides: slides.length > 0 ? slides : createFallbackDeck(userPrompt).slides,
     };
+
+    if (data.dataProvenance) {
+        normalized.dataProvenance = data.dataProvenance;
+    }
+
+    return normalized;
 };
 
 /**
@@ -51,6 +74,7 @@ export const createFallbackDeck = (userPrompt = "", rawText = "") => {
     return {
         deckTitle: title,
         summary: "Executive slide deck generated from your prompt.",
+        isFallbackDeck: true,
         slides: [
             {
                 slideNumber: 1,

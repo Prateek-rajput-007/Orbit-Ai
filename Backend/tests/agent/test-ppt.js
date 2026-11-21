@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { parseDeckJson, createFallbackDeck, normalizeDeck } from "./utils/parseDeck.js";
-import { generatePptxFile } from "./utils/generatePptx.js";
+import { parseDeckJson, createFallbackDeck, normalizeDeck } from "../../services/agent/utils/parseDeck.js";
+import { generatePptxFile } from "../../services/agent/utils/generatePptx.js";
 
 async function runTests() {
     console.log("--- Starting PPT Agent Unit & Integration Tests ---");

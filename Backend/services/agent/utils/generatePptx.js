@@ -160,18 +160,35 @@ export const generatePptxFile = async (deckData = {}) => {
             });
         }
 
-        // Attach presenter speaker notes to PowerPoint slide
-        if (slideItem.speakerNotes) {
-            slide.addNotes(slideItem.speakerNotes);
+        // Attach presenter speaker notes and verifiable sources to PowerPoint slide
+        let notes = slideItem.speakerNotes ? String(slideItem.speakerNotes).trim() : "";
+        if (Array.isArray(slideItem.sources) && slideItem.sources.length > 0) {
+            const sourceBullets = slideItem.sources
+                .map((s) => `[Source ${s.citationNumber || s.sourceId}]: Page ${s.pageStart}${s.pageEnd > s.pageStart ? `-${s.pageEnd}` : ""} (${s.section || "General"})`)
+                .join("; ");
+            if (notes && !notes.includes("Sources:")) {
+                notes = `${notes}\n\nSources: ${sourceBullets}`;
+            } else if (!notes) {
+                notes = `Sources: ${sourceBullets}`;
+            }
+        }
+        if (notes) {
+            slide.addNotes(notes);
         }
     });
 
     const base64Content = await pptx.write({ outputType: "base64" });
     const fileName = `${sanitizeFileName(deckTitle)}.pptx`;
 
-    return {
+    const result = {
         fileName,
         dataUrl: `data:application/vnd.openxmlformats-officedocument.presentationml.presentation;base64,${base64Content}`,
         deckTitle,
     };
+
+    if (deckData.dataProvenance) {
+        result.dataProvenance = deckData.dataProvenance;
+    }
+
+    return result;
 };
