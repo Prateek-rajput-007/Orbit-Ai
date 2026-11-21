@@ -208,7 +208,6 @@ export const agent = async (req, res) => {
         // 4. Server-Side Daily AI Usage Quota Check (UTC midnight reset)
         const quota = await checkAndConsumeDailyQuota(userId, DAILY_AI_TURNS_LIMIT);
         if (!quota.allowed) {
-            res.setHeader("Retry-After", quota.retryAfterSec);
             const errPayload = {
                 message: `Daily AI generation quota reached (${DAILY_AI_TURNS_LIMIT} prompts/day). Quota resets at midnight UTC.`,
                 error: "Daily Quota Exceeded",
@@ -216,10 +215,14 @@ export const agent = async (req, res) => {
                 retryAfter: quota.retryAfterSec,
                 dailyLimit: DAILY_AI_TURNS_LIMIT,
             };
-            if (isSse) {
-                sendEvent("error", errPayload);
-                return res.end();
+            if (res.headersSent || isSse) {
+                if (!res.writableEnded && !res.destroyed) {
+                    sendEvent("error", errPayload);
+                    return res.end();
+                }
+                return;
             }
+            res.setHeader("Retry-After", String(quota.retryAfterSec));
             return res.status(429).json(errPayload);
         }
         quotaConsumed = true;
@@ -231,17 +234,20 @@ export const agent = async (req, res) => {
             await rollbackDailyQuota(userId);
             quotaConsumed = false;
 
-            res.setHeader("Retry-After", lease.remainingSec);
             const errPayload = {
                 message: "You already have an active generation in progress. Please wait for it to complete.",
                 error: "Concurrency Limit Exceeded",
                 status: 429,
                 retryAfter: lease.remainingSec,
             };
-            if (isSse) {
-                sendEvent("error", errPayload);
-                return res.end();
+            if (res.headersSent || isSse) {
+                if (!res.writableEnded && !res.destroyed) {
+                    sendEvent("error", errPayload);
+                    return res.end();
+                }
+                return;
             }
+            res.setHeader("Retry-After", String(lease.remainingSec));
             return res.status(429).json(errPayload);
         }
         leaseAcquired = true;
@@ -423,6 +429,26 @@ export const agent = async (req, res) => {
             ? existingCodeArtifact
             : (projectIntent.intent === PROJECT_INTENTS.AMBIGUOUS_INTENT ? existingCodeArtifact : null);
 
+        // Extract existing presentation from history if present
+        let existingPresentation = null;
+        if (Array.isArray(history)) {
+            for (let i = history.length - 1; i >= 0; i--) {
+                const msg = history[i];
+                if (
+                    msg &&
+                    msg.role === "assistant" &&
+                    ((Array.isArray(msg.slides) && msg.slides.length > 0) || msg.presentationFile)
+                ) {
+                    existingPresentation = {
+                        slides: msg.slides || [],
+                        presentationFile: msg.presentationFile || null,
+                        citations: msg.citations || [],
+                    };
+                    break;
+                }
+            }
+        }
+
         trace.mark("llmStart");
         const result = await graph.invoke({
             prompt: promptText,
@@ -431,7 +457,9 @@ export const agent = async (req, res) => {
             history: history.map(({ role, content }) => ({ role, content })),
             agentMode,
             existingCodeArtifact: effectiveExistingArtifact,
+            existingPresentation,
             projectIntent,
+            selectedDocumentId: req.body?.selectedDocumentId || undefined,
             attachment: attachment ? {
                 name: attachment.originalname,
                 mimeType: isPdf ? "application/pdf" : attachment.mimetype,
@@ -514,6 +542,15 @@ export const agent = async (req, res) => {
 
         trace.mark("persistStart");
         sendEvent("stage", { stage: "saving", message: "Persisting conversation and artifact..." });
+
+        let normalizedConfidence = result.confidence ?? null;
+        if (typeof normalizedConfidence === "number") {
+            normalizedConfidence = normalizedConfidence >= 0.85 ? "HIGH" : normalizedConfidence >= 0.6 ? "MEDIUM" : "LOW";
+        }
+        if (!["HIGH", "MEDIUM", "LOW"].includes(normalizedConfidence)) {
+            normalizedConfidence = null;
+        }
+
         const savedMessages = await saveTurn(
             conversationId,
             userId,
@@ -530,7 +567,7 @@ export const agent = async (req, res) => {
                 suggestedQuestions: result.suggestedQuestions ?? [],
                 citations: result.citations ?? [],
                 evidenceStatus: result.evidenceStatus ?? null,
-                confidence: result.confidence ?? null,
+                confidence: normalizedConfidence,
             },
             userAttachment,
         );
@@ -573,7 +610,7 @@ export const agent = async (req, res) => {
         await markIdempotencyCompleted(userId, clientRequestId, requestPayload, {
             userMessageId: savedMessages[0]._id,
             assistantMessageId: savedMessages[1]._id,
-            aiResponse: result.aiResponse,
+            aiResponse: response,
             artifacts: result.artifacts ?? [],
         });
 
@@ -587,7 +624,7 @@ export const agent = async (req, res) => {
     } catch (error) {
         const rawMessage = error.message || "Unknown error";
         const sanitizedMsg = sanitizeErrorMessage(rawMessage);
-        console.error("Agent request failed:", sanitizedMsg);
+        console.error("Agent request failed:", error.message, error.response?.data || error.stack);
         trace.record({
             status: "error",
             error: sanitizedMsg,
@@ -599,9 +636,12 @@ export const agent = async (req, res) => {
             traceId: trace.traceId,
         };
 
-        if (isSse) {
-            sendEvent("error", errorPayload);
-            return res.end();
+        if (res.headersSent || isSse) {
+            if (!res.writableEnded && !res.destroyed) {
+                sendEvent("error", errorPayload);
+                return res.end();
+            }
+            return;
         }
 
         return res.status(500).json(errorPayload);
