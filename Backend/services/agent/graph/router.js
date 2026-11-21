@@ -1,59 +1,45 @@
 import { getModel } from "../config/llmModels.js";
+import {
+    SUPPORTED_AGENTS,
+    AGENT_ALIASES,
+    resolveAgentRoute,
+    classifyTaskIntent,
+    isCodingIntent,
+    isPptIntent,
+    isPdfIntent,
+    isVisionIntent,
+    hasPdfAttachment,
+    hasImageAttachment,
+} from "../utils/documentRouting.js";
 
-const supportedAgents = new Set(["chat", "search", "coding", "pdf", "ppt", "vision"]);
-const agentAliases = {
-    image: "vision",
-    images: "vision",
-    picture: "vision",
-    code: "coding",
-    programming: "coding",
-    presentation: "ppt",
-    slides: "ppt",
-    deck: "ppt",
+// Backward compatibility exports for existing consumers and tests
+export const supportedAgents = SUPPORTED_AGENTS;
+export const agentAliases = AGENT_ALIASES;
+export {
+    resolveAgentRoute,
+    classifyTaskIntent,
+    isCodingIntent,
+    isPptIntent,
+    isPdfIntent,
+    isVisionIntent,
+    hasPdfAttachment,
+    hasImageAttachment,
 };
 
 export const router = async (state) => {
     const onStage = typeof state?.onStage === "function" ? state.onStage : null;
 
-    // 1. Explicit user selection
-    if (state.agentMode && state.agentMode !== "auto") {
-        const resolved = agentAliases[state.agentMode] || state.agentMode;
-        const agent = supportedAgents.has(resolved) ? resolved : "chat";
-        return { ...state, agent };
+    // Evaluate deterministic routing priorities (Priorities 1, 2, 3, and default attachment handling)
+    const routed = resolveAgentRoute(state);
+    if (routed.agent) {
+        return {
+            ...state,
+            agent: routed.agent,
+            routingMetadata: routed,
+        };
     }
 
-    // 2. Attachment-driven routing
-    if (state.attachment) {
-        const agent = state.attachment.mimeType === "application/pdf" ? "pdf" : "vision";
-        return { ...state, agent };
-    }
-
-    // 2.5 Explicit intent check for PDF generation
-    const isCreatePdf = /\b(create|generate|make|build|export|write)\b.*\b(pdf|cheat\s*sheet|document|handout)\b/i.test(state.prompt || "") ||
-                        /\bpdf\b.*\b(interview|question|cheat\s*sheet|guide|report|summary)\b/i.test(state.prompt || "");
-    if (isCreatePdf) {
-        return { ...state, agent: "pdf" };
-    }
-
-    // 2.6 Explicit intent check for image generation / retrieval
-    const cleanPrompt = (state.prompt || "").trim();
-    const isImageQuery = /\b(in|of|about|from|on|inside|describe|explain|detail|what|who|where|how|why|is|are|was|were)\s+.*\b(this|that|the|my|our)\s+(image|picture|photo)\b/i.test(cleanPrompt);
-    const isCreateImage = !isImageQuery && (
-        /\b(create|generate|make|draw|paint|render|produce|show|find|fetch|search|get)\b.*\b(image|picture|photo|illustration|drawing|artwork|portrait|sketch|wallpaper)\b/i.test(cleanPrompt) ||
-        /\b(image|picture|photo|illustration|drawing)\b.*\b(of|for)\s+[a-z0-9]/i.test(cleanPrompt) ||
-        /^(a\s+)?[a-z0-9_-]+\s+(image|picture|photo|illustration|wallpaper)s?$/i.test(cleanPrompt) ||
-        /^(draw|paint)\s+(a|an|the)?\s+[a-z0-9]/i.test(cleanPrompt)
-    );
-    if (isCreateImage) {
-        return { ...state, agent: "vision" };
-    }
-
-    // 2.7 Explicit routing for pure general coding/conceptual questions (e.g. "explain React hooks")
-    if (state.projectIntent?.intent === "GENERAL_CODING_QUESTION") {
-        return { ...state, agent: "chat" };
-    }
-
-    // 3. Autonomous routing via router LLM
+    // Priority 4: Autonomous routing via router LLM for general prompts without attachments
     onStage?.("routing", "Analyzing request to select specialized agent...");
     let selected = "chat";
     try {
@@ -107,24 +93,31 @@ ${state?.prompt ?? ""}
             : String(result?.content ?? "");
 
         const normalized = content.trim().toLowerCase().replace(/[^a-z]/g, "");
-        const resolved = agentAliases[normalized] || normalized;
-        selected = supportedAgents.has(resolved) ? resolved : "chat";
+        const resolved = AGENT_ALIASES[normalized] || normalized;
+        selected = SUPPORTED_AGENTS.has(resolved) ? resolved : "chat";
     } catch (error) {
         console.warn("Router LLM call failed, falling back to 'chat':", error.message);
         selected = "chat";
     }
 
-    // Safety guard: if router chose vision without attachment, route to chat.
-    // If router chose pdf without attachment and it is not a PDF creation request, route to chat.
-    if (!state.attachment && selected === "pdf" && !isCreatePdf) {
+    // Safety guard: if router chose vision without attachment and not image creation, route to chat.
+    // If router chose pdf without attachment and not pdf creation/document inquiry, route to chat.
+    const hasPdf = hasPdfAttachment(state);
+    const hasImage = hasImageAttachment(state);
+    if (!hasPdf && selected === "pdf" && !isPdfIntent(state.prompt)) {
         selected = "chat";
     }
-    if (!state.attachment && selected === "vision" && !isCreateImage) {
+    if (!hasImage && selected === "vision" && !isVisionIntent(state.prompt, state)) {
         selected = "chat";
     }
 
     return {
         ...state,
         agent: selected,
+        routingMetadata: {
+            agent: selected,
+            priority: 4,
+            reason: "Autonomous router LLM",
+        },
     };
 };

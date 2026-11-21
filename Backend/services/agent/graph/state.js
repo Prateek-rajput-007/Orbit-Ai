@@ -18,6 +18,7 @@ export const agentState = Annotation.Root({
     suggestedQuestions: Annotation(),
     codeArtifact: Annotation(),
     existingCodeArtifact: Annotation(),
+    existingPresentation: Annotation(),
     projectIntent: Annotation(),
     onToken: Annotation(),
     onStage: Annotation(),
@@ -30,4 +31,7 @@ export const agentState = Annotation.Root({
     confidence: Annotation(),
     retrievalTelemetry: Annotation(),
     retrievedChunks: Annotation(),
+    routingMetadata: Annotation(),
+    selectedDocumentId: Annotation(),
+    documentContextOptions: Annotation(),
 })
