@@ -291,6 +291,7 @@ export const ingestPdfDocument = async (attachment = {}, options = {}) => {
     if (conversationId) {
         const cacheSuccess = await cachePdfDocument(conversationId, {
             ...extracted,
+            userId: options.userId || null,
             totalChunks,
             avgChunkTokens,
             chunks,

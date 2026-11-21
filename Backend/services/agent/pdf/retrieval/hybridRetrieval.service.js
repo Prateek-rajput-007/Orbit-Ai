@@ -86,29 +86,33 @@ export const resolveTargetDocument = async (conversationId, query = "", explicit
     // Multiple documents: check if query explicitly references one by name
     const lowerQuery = (query || "").toLowerCase();
     const availableDocs = [];
-    let matchedDoc = null;
+    const matchedDocs = [];
 
     for (const id of docIds) {
         const candidate = await getCachedPdfDocument(conversationId, id);
         if (candidate) {
             availableDocs.push(candidate);
             const baseName = candidate.fileName?.replace(/\.pdf$/i, "").toLowerCase();
-            if (baseName && baseName.length >= 3 && lowerQuery.includes(baseName)) {
-                matchedDoc = candidate;
+            const normalizedBase = baseName ? baseName.replace(/[_\-]+/g, " ") : "";
+            if (
+                baseName && baseName.length >= 3 &&
+                (lowerQuery.includes(baseName) || (normalizedBase.length >= 3 && lowerQuery.includes(normalizedBase)))
+            ) {
+                matchedDocs.push(candidate);
             }
         }
     }
 
-    if (matchedDoc) {
+    if (matchedDocs.length === 1) {
         return {
-            targetDocumentId: matchedDoc.documentId,
-            targetFileName: matchedDoc.fileName,
+            targetDocumentId: matchedDocs[0].documentId,
+            targetFileName: matchedDocs[0].fileName,
             isAmbiguous: false,
             availableDocs,
         };
     }
 
-    // Ambiguous multi-document state: multiple documents exist, but query mentions none
+    // Ambiguous multi-document state: multiple documents exist, but query mentions none or mentions multiple
     return {
         targetDocumentId: null,
         targetFileName: null,

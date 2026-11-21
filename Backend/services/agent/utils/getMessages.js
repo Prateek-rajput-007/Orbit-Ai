@@ -32,22 +32,27 @@ export const getMessages = async (conversationId, userId) => {
 }
 
 export const saveTurn = async (conversationId, userId, userContent, assistantMessage, userAttachment = null) => {
-    const { data } = await axios.post(
-        `${getChatServiceUrl()}/chat/save-turn`,
-        {
-            conversationId,
-            userMessage: {
-                content: userContent,
-                attachment: userAttachment,
+    try {
+        const { data } = await axios.post(
+            `${getChatServiceUrl()}/chat/save-turn`,
+            {
+                conversationId,
+                userMessage: {
+                    content: userContent,
+                    attachment: userAttachment,
+                },
+                assistantMessage,
             },
-            assistantMessage,
-        },
-        getUserHeaders(userId),
-    )
-    if (!Array.isArray(data.messages) || data.messages.length !== 2) {
-        throw new Error("Chat service returned an invalid saved turn")
+            getUserHeaders(userId),
+        )
+        if (!Array.isArray(data.messages) || data.messages.length !== 2) {
+            throw new Error("Chat service returned an invalid saved turn")
+        }
+        return data.messages
+    } catch (err) {
+        console.error("[saveTurn Error detail]:", err.response?.data || err.message);
+        throw err;
     }
-    return data.messages
 }
 
 export const updateArtifactDeployment = async (conversationId, messageId, userId, deployment) => {

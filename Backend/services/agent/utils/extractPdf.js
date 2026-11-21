@@ -365,14 +365,14 @@ export const cachePdfDocument = async (conversationId, docData) => {
 export const getCachedPdfDocument = async (conversationId, documentId = null) => {
     if (!conversationId) return null;
 
-    // Targeted document lookup
+    // Targeted document lookup: return only the requested document, or null if not found
     if (documentId) {
         try {
             const specificRaw = await redis.get(`pdf-doc-${conversationId}-${documentId}`);
             if (specificRaw) return JSON.parse(specificRaw);
         } catch {}
         const localSpecific = localMemoryCache.get(`pdf-doc-${conversationId}-${documentId}`);
-        if (localSpecific) return JSON.parse(localSpecific);
+        return localSpecific ? JSON.parse(localSpecific) : null;
     }
 
     // Active/latest document lookup

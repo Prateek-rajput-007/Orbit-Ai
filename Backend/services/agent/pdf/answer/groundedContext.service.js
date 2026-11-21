@@ -25,6 +25,9 @@ export const sanitizeUntrustedText = (text = "") => {
     return text
         .replace(/<\/source>/gi, "&lt;/source&gt;")
         .replace(/<source[^>]*>/gi, "&lt;source&gt;")
+        .replace(/={3,}\s*(?:END|VERIFIED|START|BEGIN)?\s*DOCUMENT\s*CONTEXT[^=]*={0,}/gi, (match) => {
+            return match.replace(/={3,}/g, "==\\=");
+        })
         .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ""); // Remove control chars
 };
 

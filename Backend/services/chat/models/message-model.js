@@ -38,7 +38,10 @@ const messageSchema = new mongoose.Schema({
             title: { type: String, default: "" },
             subtitle: { type: String, default: "" },
             bullets: { type: [String], default: [] },
-            speakerNotes: { type: String, default: "" }
+            speakerNotes: { type: String, default: "" },
+            citations: { type: [Number], default: [] },
+            sources: { type: [mongoose.Schema.Types.Mixed], default: [] },
+            dataProvenance: { type: mongoose.Schema.Types.Mixed, default: null }
         }],
         default: []
     },
@@ -46,7 +49,8 @@ const messageSchema = new mongoose.Schema({
         type: {
             fileName: { type: String, default: "" },
             dataUrl: { type: String, default: "" },
-            deckTitle: { type: String, default: "" }
+            deckTitle: { type: String, default: "" },
+            dataProvenance: { type: mongoose.Schema.Types.Mixed, default: null }
         },
         default: null
     },
@@ -96,6 +100,11 @@ const messageSchema = new mongoose.Schema({
                 verifiedFiles: { type: [String], default: [] },
                 deployedAt: { type: Date, default: null },
             },
+            dataProvenance: { type: mongoose.Schema.Types.Mixed, default: null },
+            projectId: { type: String, default: null },
+            version: { type: Number, default: 1 },
+            baseVersion: { type: Number, default: null },
+            runtimeStrategy: { type: String, default: null },
         },
         default: null,
     },

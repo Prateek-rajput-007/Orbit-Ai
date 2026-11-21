@@ -1,0 +1,46 @@
+{
+  "timestamp": "2026-11-21T13:34:08.836Z",
+  "gatewayUrl": "http://localhost:8000",
+  "scenarios": {
+    "scenario1": {
+      "verdict": "PASS",
+      "uploadDurationMs": 7053,
+      "documentId": "doc_079600ac8fe6",
+      "documentStatus": "READY",
+      "pageCount": 3,
+      "groundTruthRevenueFound": true,
+      "groundTruthCashFlowFound": true,
+      "citationsCount": 0
+    },
+    "scenario2": {
+      "verdict": "PASS",
+      "generationDurationMs": 7200,
+      "filesCount": 10,
+      "groundTruthInCode": true,
+      "provenancePreserved": true
+    },
+    "scenario3": {
+      "verdict": "PASS",
+      "generationDurationMs": 5087,
+      "slideCount": 7,
+      "hasNotes": true,
+      "pptxFileSizeBytes": 99828,
+      "totalOpenXmlParts": 63,
+      "validOpenXmlStructure": true
+    },
+    "scenario4": {
+      "verdict": "PASS",
+      "unauthorizedConversationReadBlocked": true,
+      "unauthorizedAgentInvocationBlocked": true,
+      "crossDocumentAccessBlocked": true
+    },
+    "scenario5": {
+      "verdict": "PASS",
+      "idempotencyPreserved": true,
+      "abortCleanlyHandled": true,
+      "conversationHealthyPostAbort": true,
+      "rateLimit429HandledCleanly": true
+    }
+  },
+  "verdict": "PASS"
+}

@@ -30,7 +30,15 @@ for (const svc of services) {
   const child = fork(svc.file, [], {
     env,
     cwd: path.dirname(svc.file),
-    stdio: "inherit",
+    stdio: ["ignore", "pipe", "pipe", "ipc"],
+  });
+
+  child.stdout?.on("data", (data) => {
+    process.stdout.write(`[${svc.name}] ${data}`);
+  });
+
+  child.stderr?.on("data", (data) => {
+    process.stderr.write(`[${svc.name} ERR] ${data}`);
   });
 
   child.on("exit", (code, signal) => {

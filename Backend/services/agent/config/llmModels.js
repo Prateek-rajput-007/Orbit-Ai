@@ -145,6 +145,11 @@ const searchModel = groqFast.withFallbacks([geminiFastFallback, geminiFallback1]
 searchModel.model = groqFast.model;
 searchModel.provider = "groq";
 
+// Resilient PPT Model (Cross-Provider Failover from Groq to Gemini)
+const pptModel = groq.withFallbacks([geminiFastFallback, geminiFallback1]);
+pptModel.model = groq.model;
+pptModel.provider = "groq";
+
 export const getModel = (agent) => {
     switch (agent) {
         case "router":
@@ -166,7 +171,7 @@ export const getModel = (agent) => {
         case "pdf":
             return geminiMultimodal;
         case "ppt":
-            return groq;
+            return pptModel;
         case "vision":
             return geminiMultimodal;
         case "image":

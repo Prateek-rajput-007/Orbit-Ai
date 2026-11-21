@@ -176,6 +176,7 @@ export const saveTurn = async (req, res) => {
 
         res.status(201).json({ message: 'Conversation turn saved successfully', messages });
     } catch (error) {
+        console.error("[Chat saveTurn Error]:", error);
         res.status(500).json({ message: 'Error saving conversation turn', error: error.message });
     }
 };

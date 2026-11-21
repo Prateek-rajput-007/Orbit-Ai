@@ -112,16 +112,27 @@ export default function PdfArtifactPanel({ document: pdfDoc, onClose }) {
       : (createPdfBlobUrl(dataUrl) || dataUrl)
 
     const urlWithPage = `${targetUrl}#page=${currentPage}`
-    const win = window.open(urlWithPage, "_blank", "noopener,noreferrer")
-    if (!win) {
-      const a = document.createElement("a")
-      a.href = urlWithPage
-      a.target = "_blank"
-      a.rel = "noopener noreferrer"
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
+
+    // 1. Open new tab directly without 'noreferrer' to preserve same-origin context for Blob URLs.
+    // 2. Explicitly sever window.opener to protect against reverse-tabnabbing security vulnerabilities.
+    try {
+      const win = window.open(urlWithPage, "_blank")
+      if (win) {
+        win.opener = null
+        return
+      }
+    } catch (err) {
+      console.warn("[PdfArtifactPanel] window.open failed, falling back to anchor:", err)
     }
+
+    // Fallback if popup blocker intercepted window.open: programmatic anchor click with rel="noopener"
+    const a = document.createElement("a")
+    a.href = urlWithPage
+    a.target = "_blank"
+    a.rel = "noopener" // Note: NOT noreferrer, which strips origin and breaks Blob URLs in Chromium
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
   }
 
   return (
@@ -247,11 +258,13 @@ export default function PdfArtifactPanel({ document: pdfDoc, onClose }) {
         >
           {(blobUrl || dataUrl) ? (
             <object
+              key={`${blobUrl || dataUrl}-${currentPage}`}
               data={`${blobUrl || dataUrl}#page=${currentPage}&toolbar=0&navpanes=0`}
               type="application/pdf"
               className="h-full w-full"
             >
               <iframe
+                key={`${blobUrl || dataUrl}-${currentPage}`}
                 src={`${blobUrl || dataUrl}#page=${currentPage}&toolbar=0&navpanes=0`}
                 title={fileName}
                 className="h-full w-full border-0"
@@ -272,7 +285,7 @@ export default function PdfArtifactPanel({ document: pdfDoc, onClose }) {
           <a
             href={`${blobUrl || dataUrl}#page=${currentPage}`}
             target="_blank"
-            rel="noopener noreferrer"
+            rel="noopener"
             onClick={handleOpenInTab}
             className="flex items-center gap-1 text-accent hover:underline transition cursor-pointer"
             title={`Open ${fileName} at Page ${currentPage} in a new tab`}

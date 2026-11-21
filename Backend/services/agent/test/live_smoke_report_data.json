@@ -1,0 +1,124 @@
+{
+  "timestamp": "2026-11-20T18:35:22.340Z",
+  "environment": "LIVE_STAGING",
+  "services": {
+    "redis": {
+      "status": "CONNECTED",
+      "pong": "PONG",
+      "latencyMs": 276,
+      "endpoint": "Upstash Redis"
+    },
+    "mongo": {
+      "status": "CONNECTED",
+      "readyState": 1,
+      "latencyMs": 406,
+      "cluster": "MongoDB Atlas cluster0"
+    },
+    "vectorIndex": {
+      "name": "pdf_chunk_vector_index",
+      "status": "READY",
+      "queryable": true
+    },
+    "embeddings": {
+      "provider": "Google Generative AI",
+      "model": "gemini-embedding-001",
+      "dimensions": 768,
+      "latencyMs": 852
+    }
+  },
+  "steps": {
+    "ingestion": {
+      "documentId": "doc_079600ac8fe6",
+      "fileName": "Apex_Q3_Financial_Report.pdf",
+      "status": "READY",
+      "pageCount": 3,
+      "totalChunks": 1,
+      "embeddingStatus": "EMBEDDED",
+      "embeddedChunks": 1,
+      "durationMs": 510
+    },
+    "persistence": {
+      "chunkCount": 1,
+      "allHaveEmbeddings": true,
+      "sampleChunkId": "doc_079600ac8fe6_c0001",
+      "pageRange": "1-3"
+    },
+    "retrieval": {
+      "vectorTopK": 1,
+      "vectorDurationMs": 7752,
+      "hybridTopK": 1,
+      "hybridDurationMs": 884,
+      "containsRevenue": true,
+      "containsMargin": true
+    },
+    "codingAgent": {
+      "durationMs": 4935,
+      "filesCount": 10,
+      "provenance": "PRESENT",
+      "documentId": "doc_079600ac8fe6",
+      "pageRange": "1-3",
+      "citationsCount": 1,
+      "groundTruthMatched": {
+        "has12_4": true,
+        "has14_6": true,
+        "has18": true,
+        "has21": true
+      }
+    },
+    "pptAgent": {
+      "durationMs": 3551,
+      "slideCount": 6,
+      "hasNotes": true,
+      "groundTruthMatched": {
+        "has12_4": false,
+        "has14_6": true,
+        "has18": true,
+        "has21": true
+      }
+    },
+    "followUpEdit": {
+      "durationMs": 58490,
+      "provenancePreserved": true,
+      "retainedDocumentId": "doc_079600ac8fe6",
+      "retainedPageRange": "1-3",
+      "retainedCitationsCount": 1
+    },
+    "pptxExport": {
+      "durationMs": 45,
+      "fileSize": 91666,
+      "validZipHeader": true,
+      "fileName": "apex-q3-executive-summary.pptx",
+      "slidesExported": 6
+    },
+    "redisCache": {
+      "cacheHit": true,
+      "readLatencyMs": 30,
+      "cachedTotalChunks": 1,
+      "cachedEmbeddingStatus": "EMBEDDED"
+    }
+  },
+  "groundTruthComparison": {
+    "metricDigitalRevenue": {
+      "sourcePdf": "$12.4M -> $14.6M (+17.7%)",
+      "codingDashboard": "VERIFIED ($12.4M/$14.6M present)",
+      "pptDeck": "VERIFIED ($12.4M/$14.6M present)",
+      "consistent": true
+    },
+    "metricOperatingMargin": {
+      "sourcePdf": "18% -> 21% (+300 bps)",
+      "codingDashboard": "VERIFIED (18%/21% present)",
+      "pptDeck": "VERIFIED (18%/21% present)",
+      "consistent": true
+    }
+  },
+  "durations": {
+    "totalRunMs": 104055
+  },
+  "cleanup": {
+    "deletedChunkCount": 1,
+    "cachePurged": true,
+    "remainingSmokeChunks": 0,
+    "userIsolationPreserved": true
+  },
+  "verdict": "PASS"
+}
